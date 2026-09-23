@@ -35,7 +35,6 @@ import {
   CLAUDE_PTY_LIFECYCLE_DEFAULTS,
   CLAUDE_PTY_MAX_CONCURRENT_MAX,
   CLAUDE_PTY_MAX_CONCURRENT_MIN,
-  CLOUDFLARE_TUNNEL_DEFAULTS,
   GLOBAL_PROMPT_APPEND_MAX_CHARS,
   PROVIDERS,
   mergeCustomModels,
@@ -49,8 +48,6 @@ import {
   isEditorPreset,
   isLlmProviderKind,
   type AgentProvider,
-  type CloudflareTunnelMode,
-  type CloudflareTunnelSettings,
   type LlmProviderKind,
   type UpdateSnapshot,
 } from "../../shared/types"
@@ -231,16 +228,6 @@ const chatSoundPreferenceOptions: { value: ChatSoundPreference; label: string }[
 const analyticsOptions = [
   { value: "disabled" as const, label: "Off" },
   { value: "enabled" as const, label: "On" },
-]
-
-const cloudflareTunnelEnabledOptions = [
-  { value: "disabled" as const, label: "Off" },
-  { value: "enabled" as const, label: "On" },
-]
-
-const cloudflareTunnelModeOptions: { value: CloudflareTunnelMode; label: string }[] = [
-  { value: "always-ask", label: "Always ask" },
-  { value: "auto-expose", label: "Auto-expose" },
 ]
 
 const QUICK_RESPONSE_PROVIDER_OPTIONS: Array<{ value: LlmProviderKind; label: string }> = [
@@ -614,10 +601,6 @@ export function AutoResumeToggleSection({
   )
 }
 
-export function CloudflareTunnelSectionTitle() {
-  return <span>Cloudflare Tunnel</span>
-}
-
 export function GlobalInstructionsSection({ state }: { state: KannaState }) {
   const persisted = useAppSettingsStore((s) => s.settings?.globalPromptAppend ?? "")
   const draft = useSettingsPageStore((s) => s.globalInstructionsDraft)
@@ -820,10 +803,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
   const setAppSettingsError = useSettingsPageStore((s) => s.setAppSettingsError)
   const analyticsDialogOpen = useSettingsPageStore((s) => s.analyticsDialogOpen)
   const setAnalyticsDialogOpen = useSettingsPageStore((s) => s.setAnalyticsDialogOpen)
-  const tunnelError = useSettingsPageStore((s) => s.tunnelError)
-  const setTunnelError = useSettingsPageStore((s) => s.setTunnelError)
-  const cloudflaredPathDraft = useSettingsPageStore((s) => s.cloudflaredPathDraft)
-  const setCloudflaredPathDraft = useSettingsPageStore((s) => s.setCloudflaredPathDraft)
   const pushContactSubjectDraft = useSettingsPageStore((s) => s.pushContactSubjectDraft)
   const setPushContactSubjectDraft = useSettingsPageStore((s) => s.setPushContactSubjectDraft)
   const shareDefaultTtlHours = appSettings?.shareDefaultTtlHours ?? 24
@@ -841,7 +820,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
   const setLlmValidationDialogOpen = useSettingsPageStore((s) => s.setLlmValidationDialogOpen)
   const updateSnapshot = state.updateSnapshot
   const handleWriteAppSettings = state.handleWriteAppSettings
-  const handleWriteCloudflareTunnel = state.handleWriteCloudflareTunnel
   const handleWriteClaudeAuth = state.handleWriteClaudeAuth
   const handleTestOAuthToken = state.handleTestOAuthToken
   const handleReadLlmProvider = state.handleReadLlmProvider
@@ -917,11 +895,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
     if (resolveSettingsSectionId(sectionId)) return
     navigate("/settings/general", { replace: true })
   }, [navigate, sectionId])
-
-  useEffect(() => {
-    if (!appSettings) return
-    setCloudflaredPathDraft(appSettings.cloudflareTunnel.cloudflaredPath)
-  }, [appSettings, setCloudflaredPathDraft])
 
   useEffect(() => {
     if (!appSettings) return
@@ -1177,15 +1150,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
     }
   }
 
-  async function handleTunnelPatch(patch: Partial<CloudflareTunnelSettings>) {
-    try {
-      setTunnelError(null)
-      await handleWriteCloudflareTunnel(patch)
-    } catch (error) {
-      setTunnelError(error instanceof Error ? error.message : "Unable to save Cloudflare Tunnel settings.")
-    }
-  }
-
   function handleDefaultProviderChange(nextValue: "last_used" | AgentProvider) {
     setDefaultProvider(nextValue)
     void handleWriteAppSettings({ defaultProvider: nextValue }).catch((error) => {
@@ -1263,8 +1227,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
   const analyticsDisclosureEvents = ANALYTICS_STATIC_EVENT_NAMES
   const analyticsSettingValue = appSettings?.analyticsEnabled === false ? "disabled" : "enabled"
   const telemetrySettingValue = appSettings?.telemetry?.enabled === false ? "disabled" : "enabled"
-  const tunnelSettings: CloudflareTunnelSettings = appSettings?.cloudflareTunnel ?? CLOUDFLARE_TUNNEL_DEFAULTS
-  const tunnelEnabledValue = tunnelSettings.enabled ? "enabled" : "disabled"
   const selectedSection = sidebarItems.find((item) => item.id === selectedPage) ?? sidebarItems[0]
   const visibleSidebarItems = useMemo(() => visibleSettingsSidebarItems(kannaPluginsEnabled), [kannaPluginsEnabled])
   const selectedSectionSubtitle =
@@ -1849,69 +1811,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
                       </SettingsRow>
                     </div>
                     <div className="border-b border-border">
-                      {tunnelError ? (
-                        <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                          {tunnelError}
-                        </div>
-                      ) : null}
-                      <SettingsRow
-                        title="Cloudflare Tunnel"
-                        description={(
-                          <>
-                            <span>
-                              When enabled, Claude can call the <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">expose_port</code> tool to expose a local port via Cloudflare Tunnel. The mode below controls whether each call requires your approval or is exposed automatically. Requires{" "}
-                              <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">cloudflared</code>{" "}
-                              to be installed.
-                            </span>
-                            <span className="mt-1 block">
-                              Stored in {appSettings?.filePathDisplay ?? "~/.kanna/data/settings.json"}.
-                            </span>
-                          </>
-                        )}
-                        bordered={false}
-                      >
-                        <SegmentedControl
-                          value={tunnelEnabledValue}
-                          onValueChange={(value) => {
-                            void handleTunnelPatch({ enabled: value === "enabled" })
-                          }}
-                          options={cloudflareTunnelEnabledOptions}
-                          size="sm"
-                        />
-                      </SettingsRow>
-                      {tunnelSettings.enabled && (
-                        <>
-                          <SettingsRow
-                            title="Tool mode"
-                            description="Always ask: each expose_port call shows an accept card. Auto-expose: expose_port calls spawn cloudflared immediately without prompting."
-                          >
-                            <SegmentedControl
-                              value={tunnelSettings.mode}
-                              onValueChange={(value) => {
-                                void handleTunnelPatch({ mode: value })
-                              }}
-                              options={cloudflareTunnelModeOptions}
-                              size="sm"
-                            />
-                          </SettingsRow>
-                          <SettingsRow
-                            title="cloudflared path"
-                            description="Path to the cloudflared binary. Defaults to the one found on $PATH."
-                          >
-                            <Input
-                              value={cloudflaredPathDraft}
-                              onChange={(event) => setCloudflaredPathDraft(event.target.value)}
-                              onBlur={() => {
-                                void handleTunnelPatch({ cloudflaredPath: cloudflaredPathDraft })
-                              }}
-                              placeholder="cloudflared"
-                              className="w-full font-mono md:w-64"
-                            />
-                          </SettingsRow>
-                        </>
-                      )}
-                    </div>
-                    <div className="border-b border-border">
                       <SettingsRow
                         title="Public share links"
                         description="Default expiry for read-only chat share links. Owners can revoke any link manually at any time."
@@ -2277,4 +2176,3 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
     </div>
   )
 }
-

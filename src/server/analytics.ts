@@ -1,8 +1,6 @@
 import type { JsonObject } from "../shared/json"
 import { ANALYTICS_ENDPOINT } from "../shared/analytics"
 import { PROD_SERVER_PORT } from "../shared/ports"
-import type { ShareMode } from "../shared/share"
-import { isTokenShareMode } from "../shared/share"
 import { log } from "../shared/log"
 interface AnalyticsRequestBody {
   userId: string
@@ -17,7 +15,6 @@ export interface LaunchAnalyticsOptions {
   port: number
   host: string
   openBrowser: boolean
-  share: ShareMode
   password: string | null
   strictPort: boolean
 }
@@ -122,8 +119,6 @@ export function getLaunchAnalyticsProperties(options: LaunchAnalyticsOptions) {
     strict_port_enabled: options.strictPort,
     remote_enabled: options.host === "0.0.0.0",
     host_enabled: options.host !== "0.0.0.0" && options.host !== "127.0.0.1" && options.host !== "localhost",
-    share_quick_enabled: options.share === "quick",
-    share_token_enabled: isTokenShareMode(options.share),
   }
 }
 

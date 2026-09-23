@@ -2,8 +2,6 @@ import process from "node:process"
 import { hasCommand, spawnDetached, spawnSyncCapture } from "./process-utils.adapter"
 import { log } from "../shared/log"
 import { APP_NAME, CLI_COMMAND, getDataDirDisplay, LOG_PREFIX, PACKAGE_NAME } from "../shared/branding"
-import type { ShareMode } from "../shared/share"
-import { assertNoHostOverride, getShareCliFlag, isShareEnabled, isTokenShareMode } from "../shared/share"
 import type { UpdateInstallErrorCode } from "../shared/types"
 import { PROD_SERVER_PORT } from "../shared/ports"
 import { runPluginCli } from "./plugin-cli-dispatch"
@@ -11,13 +9,11 @@ import { configurePluginService } from "./plugins/plugin-service-host"
 import { createInstalledPluginStore } from "./plugins/installed-plugin-store"
 import { AppSettingsManager } from "./app-settings"
 import { CLI_SUPPRESS_OPEN_ONCE_ENV_VAR } from "./restart"
-import { logShareDetails, renderTerminalQr, startShareTunnel, type StartedShareTunnel } from "./share"
 
 export interface CliOptions {
   port: number
   host: string
   openBrowser: boolean
-  share: ShareMode
   password: string | null
   strictPort: boolean
 }
@@ -61,8 +57,6 @@ export interface CliRuntimeDeps {
   log: (message: string) => void
   warn: (message: string) => void
   preparePluginService?: () => Promise<void>
-  renderShareQr?: (url: string) => Promise<string>
-  startShareTunnel?: (localUrl: string, shareMode: Exclude<ShareMode, false>) => Promise<StartedShareTunnel>
 }
 
 export interface UpdateInstallAttemptResult {
@@ -79,10 +73,6 @@ type ParsedArgs =
   | { kind: "plugin"; args: string[] }
 
 const MINIMUM_BUN_VERSION = "1.3.5"
-
-function throwShareConflict(share: Exclude<ShareMode, false>, hostFlag: "--host" | "--remote"): never {
-  throw new Error(`${getShareCliFlag(share)} cannot be used with ${hostFlag}`)
-}
 
 function printHelp() {
   log.info(`${APP_NAME} — local-only project chat UI
@@ -103,9 +93,6 @@ Options:
   --port <number>      Port to listen on (default: ${PROD_SERVER_PORT})
   --host <host>        Bind to a specific host or IP
   --remote             Shortcut for --host 0.0.0.0
-  --share              Create a public Cloudflare quick tunnel with terminal QR
-  --cloudflared <token>
-                       Run a named Cloudflare tunnel from a token
   --password <secret>  Require a password before loading the app
   --strict-port        Fail instead of trying another port
   --no-open            Don't open browser automatically
@@ -121,10 +108,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let port = PROD_SERVER_PORT
   let host = "127.0.0.1"
   let openBrowser = true
-  let share: ShareMode = false
   let password: string | null = null
-  let sawHost = false
-  let sawRemote = false
   let strictPort = false
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -145,33 +129,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (arg === "--host") {
       const next = argv[index + 1]
       if (!next || next.startsWith("-")) throw new Error("Missing value for --host")
-      if (isShareEnabled(share)) {
-        throwShareConflict(share, "--host")
-      }
       host = next
-      sawHost = true
       index += 1
       continue
     }
     if (arg === "--remote") {
-      if (isShareEnabled(share)) {
-        throwShareConflict(share, "--remote")
-      }
       host = "0.0.0.0"
-      sawRemote = true
-      continue
-    }
-    if (arg === "--share") {
-      assertNoHostOverride("--share", sawHost, sawRemote)
-      share = "quick"
-      continue
-    }
-    if (arg === "--cloudflared") {
-      assertNoHostOverride("--cloudflared", sawHost, sawRemote)
-      const next = argv[index + 1]
-      if (!next || next.startsWith("-")) throw new Error("Missing value for --cloudflared")
-      share = { kind: "token", token: next }
-      index += 1
       continue
     }
     if (arg === "--no-open") {
@@ -198,7 +161,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
       port,
       host,
       openBrowser,
-      share,
       password,
       strictPort,
     },
@@ -300,7 +262,6 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
 
   const { port, stop } = await deps.startServer({
     ...parsedArgs.options,
-    trustProxy: isShareEnabled(parsedArgs.options.share),
     onMigrationProgress: deps.log,
     update: {
       version: deps.version,
@@ -311,50 +272,20 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
     },
   })
   const bindHost = parsedArgs.options.host
-  const displayHost = isShareEnabled(parsedArgs.options.share) || bindHost === "127.0.0.1" || bindHost === "0.0.0.0" ? "localhost" : bindHost
+  const displayHost = bindHost === "127.0.0.1" || bindHost === "0.0.0.0" ? "localhost" : bindHost
   const launchUrl = `http://${displayHost}:${port}`
-  let shareTunnelStop: (() => void) | null = null
 
   deps.log(`${LOG_PREFIX} listening on http://${bindHost}:${port}`)
   deps.log(`${LOG_PREFIX} data dir: ${getDataDirDisplay()}`)
 
   const suppressOpenBrowser = process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR] === "1"
-  if (isShareEnabled(parsedArgs.options.share)) {
-    try {
-      const shareTunnel = await (deps.startShareTunnel ?? ((localUrl, shareMode) => startShareTunnel(localUrl, shareMode, {
-        log: (message) => deps.log(`${LOG_PREFIX} ${message}`),
-      })))(launchUrl, parsedArgs.options.share)
-      shareTunnelStop = shareTunnel.stop
-      if (shareTunnel.publicUrl) {
-        await logShareDetails(deps.log, shareTunnel.publicUrl, launchUrl, deps.renderShareQr ?? renderTerminalQr)
-      } else {
-        deps.warn(`${LOG_PREFIX} named tunnel started but no public hostname was detected`)
-        if (isTokenShareMode(parsedArgs.options.share)) {
-          deps.warn(`${LOG_PREFIX} use the hostname configured for the provided Cloudflare tunnel token`)
-        }
-        deps.log("Local URL:")
-        deps.log(launchUrl)
-      }
-    } catch (error) {
-      await stop()
-      deps.warn(`${LOG_PREFIX} failed to start Cloudflare share tunnel`)
-      if (error instanceof Error && error.message) {
-        deps.warn(`${LOG_PREFIX} ${error.message}`)
-      }
-      return { kind: "exited", code: 1 }
-    }
-  }
-
-  if (parsedArgs.options.openBrowser && !isShareEnabled(parsedArgs.options.share) && !suppressOpenBrowser) {
+  if (parsedArgs.options.openBrowser && !suppressOpenBrowser) {
     deps.openUrl(launchUrl)
   }
 
   return {
     kind: "started",
-    stop: async () => {
-      shareTunnelStop?.()
-      await stop()
-    },
+    stop,
   }
 }
 

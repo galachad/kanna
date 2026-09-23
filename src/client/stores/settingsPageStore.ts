@@ -59,8 +59,6 @@ interface SettingsPageState {
   keybindingsError: string | null
   appSettingsError: string | null
   analyticsDialogOpen: boolean
-  tunnelError: string | null
-  cloudflaredPathDraft: string
   pushContactSubjectDraft: string
   shareDefaultTtlDraft: string
   llmProviderDraft: LlmProviderDraft
@@ -118,8 +116,6 @@ interface SettingsPageState {
   setKeybindingsError: (error: string | null) => void
   setAppSettingsError: (error: string | null) => void
   setAnalyticsDialogOpen: (open: boolean) => void
-  setTunnelError: (error: string | null) => void
-  setCloudflaredPathDraft: (draft: string) => void
   setPushContactSubjectDraft: (draft: string) => void
   setShareDefaultTtlDraft: (draft: string) => void
   setLlmProviderDraft: (draft: LlmProviderDraft) => void
@@ -173,8 +169,6 @@ export const useSettingsPageStore = create<SettingsPageState>()((set, get) => ({
   keybindingsError: null,
   appSettingsError: null,
   analyticsDialogOpen: false,
-  tunnelError: null,
-  cloudflaredPathDraft: "",
   pushContactSubjectDraft: "",
   shareDefaultTtlDraft: "",
   llmProviderDraft: {
@@ -269,8 +263,6 @@ export const useSettingsPageStore = create<SettingsPageState>()((set, get) => ({
   setKeybindingsError: (error) => set({ keybindingsError: error }),
   setAppSettingsError: (error) => set({ appSettingsError: error }),
   setAnalyticsDialogOpen: (open) => set({ analyticsDialogOpen: open }),
-  setTunnelError: (error) => set({ tunnelError: error }),
-  setCloudflaredPathDraft: (draft) => set({ cloudflaredPathDraft: draft }),
   setPushContactSubjectDraft: (draft) => set({ pushContactSubjectDraft: draft }),
   setShareDefaultTtlDraft: (draft) => set({ shareDefaultTtlDraft: draft }),
   setLlmProviderDraft: (draft) => set({ llmProviderDraft: draft }),

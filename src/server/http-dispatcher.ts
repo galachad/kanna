@@ -15,6 +15,7 @@ import {
 } from "./http-api-routes"
 import { serveStatic } from "./http-static"
 import { handlePluginRequest } from "./plugin-http-routes"
+import { handlePortProxyRequest } from "./port-proxy.adapter"
 import { configurePluginService, getPluginService } from "./plugins/plugin-service-host"
 import { createInstalledPluginStore } from "./plugins/installed-plugin-store"
 
@@ -64,6 +65,9 @@ export function createHttpDispatcher(
     if (url.pathname.startsWith("/api/share/")) {
       return handleShareApiRequest(req, sessionShare)
     }
+
+    const portProxyResponse = await handlePortProxyRequest(req)
+    if (portProxyResponse) return portProxyResponse
 
     if (auth) {
       if (url.pathname === "/auth/login") {

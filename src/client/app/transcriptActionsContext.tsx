@@ -5,7 +5,7 @@ import type { CronJobSnapshot } from "../../shared/cron/types"
 import type { ToolRequestDecision } from "../../shared/permission-policy"
 import type { SubagentRunSnapshot, LoopProgressSnapshot } from "../../shared/subagent-types"
 import type { EditorPreset } from "../../shared/protocol"
-import type { CloudflareTunnelRecord } from "../../shared/settings/cloudflare-tunnel"
+import type { PortProxyRecord } from "../../shared/port-proxy/types"
 import type { WorkflowRunSummary, WorkflowRun } from "../../shared/workflow-types"
 import type { GetSubagentTranscript } from "../components/messages/subagent-fetch-context"
 import type { KannaState } from "./useKannaState"
@@ -31,11 +31,9 @@ export interface TranscriptActionsContextValue {
   onCancelSubagentRun?: (chatId: string, runId: string) => void
   getSubagentTranscript?: GetSubagentTranscript
   platform: string
-  tunnels?: Record<string, CloudflareTunnelRecord>
-  liveTunnelId?: string | null
-  onTunnelAccept?: (tunnelId: string) => void | Promise<void>
-  onTunnelStop?: (tunnelId: string) => void | Promise<void>
-  onTunnelRetry?: (tunnelId: string) => void | Promise<void>
+  proxies?: Record<string, PortProxyRecord>
+  liveProxyId?: string | null
+  onProxyStop?: (proxyId: string) => void | Promise<void>
   queuedMessages: QueuedChatMessage[]
   runtimeStatus: string | null
   isDraining: boolean

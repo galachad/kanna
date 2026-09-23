@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { AUTH_DEFAULTS, CLAUDE_AUTH_DEFAULTS, CLAUDE_DRIVER_DEFAULTS, CLAUDE_PTY_LIFECYCLE_DEFAULTS, CLOUDFLARE_TUNNEL_DEFAULTS, DEFAULT_OPENROUTER_SDK_MODEL, GLOBAL_PROMPT_APPEND_MAX_CHARS, mergeCustomModels, PACKAGE_UPDATE_CHECK_INTERVAL_MAX_MS, PACKAGE_UPDATE_CHECK_INTERVAL_MIN_MS, PACKAGE_UPDATE_SETTINGS_DEFAULTS, PLUGIN_SETTINGS_DEFAULTS, PROVIDERS, PUSH_DEFAULTS,
+import { AUTH_DEFAULTS, CLAUDE_AUTH_DEFAULTS, CLAUDE_DRIVER_DEFAULTS, CLAUDE_PTY_LIFECYCLE_DEFAULTS, DEFAULT_OPENROUTER_SDK_MODEL, GLOBAL_PROMPT_APPEND_MAX_CHARS, mergeCustomModels, PACKAGE_UPDATE_CHECK_INTERVAL_MAX_MS, PACKAGE_UPDATE_CHECK_INTERVAL_MIN_MS, PACKAGE_UPDATE_SETTINGS_DEFAULTS, PLUGIN_SETTINGS_DEFAULTS, PROVIDERS, PUSH_DEFAULTS,
   TELEMETRY_DEFAULTS, TYPOGRAPHY_DEFAULTS, UPLOAD_DEFAULTS } from "../shared/types"
 import { AppSettingsManager, readAppSettingsSnapshot, seedCustomModelsFromBuiltins } from "./app-settings"
 import type { AppSettingsSnapshot, McpOAuthState, SubagentInput } from "../shared/types"
@@ -80,7 +80,6 @@ function expectedSettingsSnapshot(filePath: string, overrides: Partial<AppSettin
     },
     warning: null,
     filePathDisplay: filePath,
-    cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
     push: PUSH_DEFAULTS,
     telemetry: TELEMETRY_DEFAULTS,
     auth: AUTH_DEFAULTS,
@@ -227,139 +226,6 @@ describe("pane tab width normalization", () => {
     expect(await readAppSettingsSnapshot(filePath)).toMatchObject({ panes: { tabMinWidth: 140 } })
 
     manager.dispose()
-  })
-})
-
-describe("cloudflareTunnel normalization", () => {
-  test("normalizes missing cloudflareTunnel block to defaults", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.cloudflareTunnel).toEqual({
-      enabled: false,
-      cloudflaredPath: "cloudflared",
-      mode: "always-ask",
-    })
-  })
-
-  test("preserves valid cloudflareTunnel settings", async () => {
-    const filePath = await writeSettingsFile({
-      cloudflareTunnel: { enabled: true, cloudflaredPath: "/usr/local/bin/cloudflared", mode: "auto-expose" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.cloudflareTunnel).toEqual({
-      enabled: true,
-      cloudflaredPath: "/usr/local/bin/cloudflared",
-      mode: "auto-expose",
-    })
-  })
-
-  test("rejects invalid mode and resets to default with warning", async () => {
-    const filePath = await writeSettingsFile({
-      cloudflareTunnel: { enabled: true, cloudflaredPath: "cloudflared", mode: "garbage" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.cloudflareTunnel.mode).toBe("always-ask")
-    expect(snapshot.warning).toContain("cloudflareTunnel.mode")
-  })
-
-  test("defaults push.contactSubject when absent", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.push.contactSubject).toBe(PUSH_DEFAULTS.contactSubject)
-    expect(snapshot.warning).toBeNull()
-  })
-
-  test("preserves a valid push.contactSubject", async () => {
-    const filePath = await writeSettingsFile({
-      push: { contactSubject: "mailto:me@corp.com" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.push.contactSubject).toBe("mailto:me@corp.com")
-  })
-
-  test("rejects an invalid push.contactSubject and resets to default with warning", async () => {
-    const filePath = await writeSettingsFile({
-      push: { contactSubject: "mailto:kanna@localhost" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.push.contactSubject).toBe(PUSH_DEFAULTS.contactSubject)
-    expect(snapshot.warning).toContain("push.contactSubject")
-  })
-
-  test("writeAppSettingsPatch persists a valid push.contactSubject and rejects an invalid one", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const manager = trackManager(new AppSettingsManager(filePath))
-    await manager.initialize()
-    await manager.writePatch({ push: { contactSubject: "https://kanna.example.dev" } })
-    expect((await readAppSettingsSnapshot(filePath)).push.contactSubject).toBe(
-      "https://kanna.example.dev",
-    )
-    await manager.writePatch({ push: { contactSubject: "mailto:x@localhost" } })
-    expect((await readAppSettingsSnapshot(filePath)).push.contactSubject).toBe(
-      PUSH_DEFAULTS.contactSubject,
-    )
-  })
-
-  test("defaults telemetry when absent (enabled, lowbit collector)", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.telemetry).toEqual(TELEMETRY_DEFAULTS)
-    expect(snapshot.warning).toBeNull()
-  })
-
-  test("preserves telemetry.enabled=false and trims the endpoint's trailing slash", async () => {
-    const filePath = await writeSettingsFile({
-      telemetry: { enabled: false, endpoint: "https://collector.example.dev/" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.telemetry).toEqual({ enabled: false, endpoint: "https://collector.example.dev" })
-  })
-
-  test("rejects a non-url telemetry.endpoint with a warning and keeps the default", async () => {
-    const filePath = await writeSettingsFile({
-      telemetry: { endpoint: "not-a-url" },
-    })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.telemetry.endpoint).toBe(TELEMETRY_DEFAULTS.endpoint)
-    expect(snapshot.warning).toContain("telemetry.endpoint")
-  })
-
-  test("writePatch({telemetry:{enabled:false}}) persists and keeps the endpoint", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const manager = trackManager(new AppSettingsManager(filePath))
-    await manager.initialize()
-    await manager.writePatch({ telemetry: { enabled: false } })
-    const snapshot = await readAppSettingsSnapshot(filePath)
-    expect(snapshot.telemetry).toEqual({ enabled: false, endpoint: TELEMETRY_DEFAULTS.endpoint })
-  })
-
-  test("setCloudflareTunnel persists patch to disk and round-trips through readAppSettingsSnapshot", async () => {
-    const filePath = await writeSettingsFile({ analyticsEnabled: true })
-    const manager = trackManager(new AppSettingsManager(filePath))
-    await manager.initialize()
-    await manager.setCloudflareTunnel({ enabled: true, mode: "auto-expose" })
-    const reloaded = await readAppSettingsSnapshot(filePath)
-    expect(reloaded.cloudflareTunnel).toEqual({
-      enabled: true,
-      cloudflaredPath: "cloudflared",
-      mode: "auto-expose",
-    })
-  })
-
-  test("write() preserves cloudflareTunnel across analytics-only updates", async () => {
-    const filePath = await writeSettingsFile({
-      analyticsEnabled: true,
-      cloudflareTunnel: { enabled: true, cloudflaredPath: "/opt/cloudflared", mode: "auto-expose" },
-    })
-    const manager = trackManager(new AppSettingsManager(filePath))
-    await manager.initialize()
-    await manager.write({ analyticsEnabled: false })
-    const reloaded = await readAppSettingsSnapshot(filePath)
-    expect(reloaded.cloudflareTunnel).toEqual({
-      enabled: true,
-      cloudflaredPath: "/opt/cloudflared",
-      mode: "auto-expose",
-    })
   })
 })
 

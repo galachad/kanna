@@ -6,17 +6,6 @@ export {
   normalizeAuthSettings,
 } from "./auth"
 
-export type {
-  CloudflareTunnelMode,
-  CloudflareTunnelRecord,
-  CloudflareTunnelSettings,
-  CloudflareTunnelState,
-} from "./cloudflare-tunnel"
-export {
-  CLOUDFLARE_TUNNEL_DEFAULTS,
-  normalizeCloudflareTunnelSettings,
-} from "./cloudflare-tunnel"
-
 export type { PushSettings } from "./push"
 export { PUSH_DEFAULTS, normalizePushSettings } from "./push"
 

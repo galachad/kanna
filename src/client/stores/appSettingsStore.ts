@@ -60,10 +60,6 @@ export function mergeAppSettingsPatch(
         modelOptions: {},
       },
     },
-    cloudflareTunnel: {
-      ...settings.cloudflareTunnel,
-      ...patch.cloudflareTunnel,
-    },
     push: {
       ...settings.push,
       ...patch.push,

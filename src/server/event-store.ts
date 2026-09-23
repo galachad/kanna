@@ -23,7 +23,7 @@ import {
   createEmptyState,
 } from "./events"
 import type { ChatPermissionPolicyOverride, ToolRequest, ToolRequestDecision, ToolRequestStatus } from "../shared/permission-policy"
-import type { CloudflareTunnelEvent } from "./cloudflare-tunnel/events"
+import type { PortProxyEvent } from "./port-proxy/events"
 import type { PushEvent, PushEventStore } from "./push/events"
 import type { ShareEvent } from "./session-share/share-projection"
 import {
@@ -102,7 +102,7 @@ export class EventStore implements PushEventStore {
   private readonly queuedMessagesLogPath: string
   private readonly turnsLogPath: string
   private readonly schedulesLogPath: string
-  private readonly tunnelLogPath: string
+  private readonly portProxyLogPath: string
   private readonly sharesLogPath: string
   private readonly pushLogPath: string
   private readonly stacksLogPath: string
@@ -119,7 +119,7 @@ export class EventStore implements PushEventStore {
   private snapshotHasLegacyMessages = false
   private readonly transcriptCache = new MessageRead.TranscriptCache()
   readonly chatOps = new ChatOpLog()
-  private readonly tunnelEventsByChatId = new Map<string, CloudflareTunnelEvent[]>()
+  private readonly portProxyEventsByChatId = new Map<string, PortProxyEvent[]>()
   private shareEventsAll: ShareEvent[] = []
   private replayChatProvider = new Map<string, AgentProvider | null>()
 
@@ -143,7 +143,7 @@ export class EventStore implements PushEventStore {
     this.queuedMessagesLogPath = path.join(this.dataDir, "queued-messages.jsonl")
     this.turnsLogPath = path.join(this.dataDir, "turns.jsonl")
     this.schedulesLogPath = path.join(this.dataDir, "schedules.jsonl")
-    this.tunnelLogPath = path.join(this.dataDir, "tunnels.jsonl")
+    this.portProxyLogPath = path.join(this.dataDir, "port-proxy.jsonl")
     this.sharesLogPath = path.join(this.dataDir, "shares.jsonl")
     this.pushLogPath = path.join(this.dataDir, "push.jsonl")
     this.stacksLogPath = path.join(this.dataDir, "stacks.jsonl")
@@ -162,7 +162,7 @@ export class EventStore implements PushEventStore {
       queuedMessagesLogPath: this.queuedMessagesLogPath,
       turnsLogPath: this.turnsLogPath,
       schedulesLogPath: this.schedulesLogPath,
-      tunnelLogPath: this.tunnelLogPath,
+      portProxyLogPath: this.portProxyLogPath,
       sharesLogPath: this.sharesLogPath,
       pushLogPath: this.pushLogPath,
       stacksLogPath: this.stacksLogPath,
@@ -172,7 +172,7 @@ export class EventStore implements PushEventStore {
       sidebarProjectOrderPath: this.sidebarProjectOrderPath,
       state: this.state,
       legacyMessagesByChatId: this.legacyMessagesByChatId,
-      tunnelEventsByChatId: this.tunnelEventsByChatId,
+      portProxyEventsByChatId: this.portProxyEventsByChatId,
       transcriptCache: this.transcriptCache,
       sidebarProjectOrderRef: this.sidebarProjectOrderRef,
       getLegacySidebarProjectOrder: () => this.legacySidebarProjectOrder,
@@ -198,10 +198,10 @@ export class EventStore implements PushEventStore {
 
     this.peripheralDeps = {
       storage: this.storage,
-      tunnelLogPath: this.tunnelLogPath,
+      portProxyLogPath: this.portProxyLogPath,
       sharesLogPath: this.sharesLogPath,
       pushLogPath: this.pushLogPath,
-      tunnelEventsByChatId: this.tunnelEventsByChatId,
+      portProxyEventsByChatId: this.portProxyEventsByChatId,
       shareEventsAll: this.shareEventsAll,
       getWriteChain: () => this.writeChain,
       setWriteChain: (p) => { this.writeChain = p },
@@ -251,7 +251,7 @@ export class EventStore implements PushEventStore {
 
   async initialize() {
     await initializeEventStore(this.initDeps, {
-      loadTunnelEvents: () => this.loadTunnelEvents(),
+      loadPortProxyEvents: () => this.loadPortProxyEvents(),
       loadShareEvents: () => this.loadShareEvents(),
       hasLegacyTranscriptData: () => this.hasLegacyTranscriptData(),
       snapshotAndTruncateLogs: () => this.snapshotAndTruncateLogs(),
@@ -268,7 +268,7 @@ export class EventStore implements PushEventStore {
       this.lastUserMessageIdByChatId.delete(chatId)
       this.transcriptCache.invalidate(chatId)
       this.legacyMessagesByChatId.delete(chatId)
-      this.tunnelEventsByChatId.delete(chatId)
+      this.portProxyEventsByChatId.delete(chatId)
     }
   }
 
@@ -656,13 +656,13 @@ export class EventStore implements PushEventStore {
   }
 
 
-  async appendTunnelEvent(event: CloudflareTunnelEvent): Promise<void> { return PeripheralEvents.appendTunnelEvent(this.peripheralDeps, event) }
+  async appendPortProxyEvent(event: PortProxyEvent): Promise<void> { return PeripheralEvents.appendPortProxyEvent(this.peripheralDeps, event) }
 
-  getTunnelEvents(chatId: string): CloudflareTunnelEvent[] { return PeripheralEvents.getTunnelEvents(this.peripheralDeps, chatId) }
+  getPortProxyEvents(chatId: string): PortProxyEvent[] { return PeripheralEvents.getPortProxyEvents(this.peripheralDeps, chatId) }
 
-  listTunnelChats(): string[] { return PeripheralEvents.listTunnelChats(this.peripheralDeps) }
+  listPortProxyChats(): string[] { return PeripheralEvents.listPortProxyChats(this.peripheralDeps) }
 
-  private async loadTunnelEvents(): Promise<void> { await PeripheralEvents.loadTunnelEvents(this.peripheralDeps) }
+  private async loadPortProxyEvents(): Promise<void> { await PeripheralEvents.loadPortProxyEvents(this.peripheralDeps) }
 
   async appendShareEvent(event: ShareEvent): Promise<void> { return PeripheralEvents.appendShareEvent(this.peripheralDeps, event) }
 

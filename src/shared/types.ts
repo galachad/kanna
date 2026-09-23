@@ -9,6 +9,7 @@ export * from "./mcp-types"
 export * from "./subagent-types"
 export * from "./app-settings-types"
 export * from "./git-diff-types"
+export type { PortProxyRecord, PortProxyState } from "./port-proxy/types"
 
 import type { AgentProvider, KannaStatus, AttachmentKind, LlmProviderKind } from "./core-types"
 import type {
@@ -17,11 +18,9 @@ import type {
 } from "./provider-model-types"
 import type { TranscriptEntry } from "./transcript-types"
 import type { StackActivity } from "./stack-activity"
-import type {
-  ClaudeSessionLifecycleStatus,
-  CloudflareTunnelRecord,
-} from "./app-settings-types"
+import type { ClaudeSessionLifecycleStatus } from "./app-settings-types"
 import type { SubagentErrorCode, SubagentRunSnapshot, LoopProgressSnapshot } from "./subagent-types"
+import type { PortProxyRecord } from "./port-proxy/types"
 
 export interface SkillSearchResult {
   id: string
@@ -414,8 +413,8 @@ export interface ChatSnapshot {
   availableProviders: ProviderCatalogEntry[]
   schedules: Record<string, AutoContinueSchedule>
   liveScheduleId: string | null
-  tunnels: Record<string, CloudflareTunnelRecord>
-  liveTunnelId: string | null
+  proxies: Record<string, PortProxyRecord>
+  liveProxyId: string | null
   resolvedBindings?: ResolvedStackBinding[]
   subagentRuns: Record<string, SubagentRunSnapshot>
   loopProgress: LoopProgressSnapshot

@@ -1424,57 +1424,57 @@ describe("EventStore tunnel events", () => {
 
     const proposed = {
       v: 1 as const,
-      kind: "tunnel_proposed" as const,
+      kind: "port_proxy_started" as const,
       timestamp: 1_000,
       chatId: chat.id,
-      tunnelId: "t1",
+      proxyId: "p1",
       port: 5173,
-      sourcePid: null,
+      url: "https://kanna.test/port-proxy/5173",
     }
-    const accepted = {
+    const stopped = {
       v: 1 as const,
-      kind: "tunnel_accepted" as const,
+      kind: "port_proxy_stopped" as const,
       timestamp: 2_000,
       chatId: chat.id,
-      tunnelId: "t1",
-      source: "user" as const,
+      proxyId: "p1",
+      reason: "user" as const,
     }
 
-    await store.appendTunnelEvent(proposed)
-    await store.appendTunnelEvent(accepted)
+    await store.appendPortProxyEvent(proposed)
+    await store.appendPortProxyEvent(stopped)
 
-    const events = store.getTunnelEvents(chat.id)
+    const events = store.getPortProxyEvents(chat.id)
     expect(events).toHaveLength(2)
-    expect(events[0].kind).toBe("tunnel_proposed")
-    expect(events[1].kind).toBe("tunnel_accepted")
+    expect(events[0].kind).toBe("port_proxy_started")
+    expect(events[1].kind).toBe("port_proxy_stopped")
   })
 
-  test("persists tunnel events across store restart", async () => {
+  test("persists port proxy events across store restart", async () => {
     const dataDir = await createTempDataDir()
     const store = new EventStore(dataDir)
     await store.initialize()
     const project = await store.openProject("/tmp/p-tunnel2")
     const chat = await store.createChat(project.id)
 
-    await store.appendTunnelEvent({
+    await store.appendPortProxyEvent({
       v: 1 as const,
-      kind: "tunnel_proposed" as const,
+      kind: "port_proxy_started" as const,
       timestamp: 1_000,
       chatId: chat.id,
-      tunnelId: "t2",
+      proxyId: "p2",
       port: 3000,
-      sourcePid: 42,
+      url: "https://kanna.test/port-proxy/3000",
     })
 
     const rehydrated = new EventStore(dataDir)
     await rehydrated.initialize()
-    const events = rehydrated.getTunnelEvents(chat.id)
+    const events = rehydrated.getPortProxyEvents(chat.id)
     expect(events).toHaveLength(1)
-    if (events[0].kind === "tunnel_proposed") {
+    if (events[0].kind === "port_proxy_started") {
       expect(events[0].port).toBe(3000)
-      expect(events[0].sourcePid).toBe(42)
+      expect(events[0].url).toBe("https://kanna.test/port-proxy/3000")
     } else {
-      throw new Error("expected tunnel_proposed")
+      throw new Error("expected port_proxy_started")
     }
   })
 
@@ -1482,7 +1482,7 @@ describe("EventStore tunnel events", () => {
     const dataDir = await createTempDataDir()
     const store = new EventStore(dataDir)
     await store.initialize()
-    expect(store.getTunnelEvents("nonexistent")).toEqual([])
+    expect(store.getPortProxyEvents("nonexistent")).toEqual([])
   })
 })
 

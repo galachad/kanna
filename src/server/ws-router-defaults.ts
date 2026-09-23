@@ -5,7 +5,6 @@ import {
   CLAUDE_AUTH_DEFAULTS,
   CLAUDE_DRIVER_DEFAULTS,
   CLAUDE_PTY_LIFECYCLE_DEFAULTS,
-  CLOUDFLARE_TUNNEL_DEFAULTS,
   DEFAULT_OPENROUTER_SDK_MODEL,
   PACKAGE_UPDATE_SETTINGS_DEFAULTS,
   PLUGIN_SETTINGS_DEFAULTS,
@@ -132,10 +131,6 @@ export function mergeAppSettingsPatch(
         modelOptions: {},
       },
     },
-    cloudflareTunnel: {
-      ...snapshot.cloudflareTunnel,
-      ...patch.cloudflareTunnel,
-    },
     push: {
       ...snapshot.push,
       ...patch.push,
@@ -231,7 +226,6 @@ export function buildInitialAppSettingsSnapshot(): AppSettingsSnapshot {
     },
     warning: null,
     filePathDisplay: "~/.kanna/data/settings.json",
-    cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
     push: PUSH_DEFAULTS,
     telemetry: TELEMETRY_DEFAULTS,
     auth: AUTH_DEFAULTS,
@@ -386,7 +380,7 @@ export function buildFallbackLlmProvider() {
 type AppSettingsManagerSubset = Pick<AppSettingsManager,
   "getSnapshot" | "write"
 > & Partial<Pick<AppSettingsManager,
-  "setCloudflareTunnel" | "setClaudeAuth" | "writePatch" | "onChange" |
+  "setClaudeAuth" | "writePatch" | "onChange" |
   "createSubagent" | "updateSubagent" | "deleteSubagent"
 >>
 
@@ -411,14 +405,6 @@ export function buildResolvedAppSettings(
         return await appSettings.write({ analyticsEnabled: patch.analyticsEnabled })
       }
       fallbackSnapshot = mergeAppSettingsPatch(appSettings?.getSnapshot() ?? fallbackSnapshot, patch)
-      return fallbackSnapshot
-    },
-
-    setCloudflareTunnel: async (
-      patch: Partial<AppSettingsSnapshot["cloudflareTunnel"]>,
-    ): Promise<AppSettingsSnapshot> => {
-      if (appSettings?.setCloudflareTunnel) return await appSettings.setCloudflareTunnel(patch)
-      fallbackSnapshot = mergeAppSettingsPatch(appSettings?.getSnapshot() ?? fallbackSnapshot, { cloudflareTunnel: patch })
       return fallbackSnapshot
     },
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { type ChatNavigatorPort } from "./chatNavigator"
 import { type AppSettingsPatch, type AppSettingsSnapshot, type ClaudeAuthSettings, type KeybindingsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type OpenRouterModel, type PushConfigSnapshot, type UpdateInstallResult, type UpdateSnapshot } from "../../shared/types"
-import type { AgentProvider, ChatDiffSnapshot, ChatSnapshot, CloudflareTunnelSettings, GitWorktree, LocalProjectsSnapshot, ProjectCommandsSnapshot, SidebarChatRow, SidebarData, StackSummary } from "../../shared/types"
+import type { AgentProvider, ChatDiffSnapshot, ChatSnapshot, GitWorktree, LocalProjectsSnapshot, ProjectCommandsSnapshot, SidebarChatRow, SidebarData, StackSummary } from "../../shared/types"
 import { NEW_CHAT_COMPOSER_ID, useChatPreferencesStore } from "../stores/chatPreferencesStore"
 import { useNewSessionStore } from "../stores/newSessionStore"
 import { flyChatTitleToTab } from "../lib/motion/titleFlip.adapter"
@@ -298,7 +298,6 @@ export interface AppGlobalState extends StackCommands {
   handleStartMcpOAuth: (id: string) => Promise<{ ok: boolean; authorizationUrl?: string; alreadyAuthenticated?: boolean; error?: string }>
   handleCompleteMcpOAuth: (id: string, callbackUrl: string) => Promise<{ ok: boolean; error?: string }>
   handleSetChatPolicyOverride: (chatId: string, policyOverride: ChatPermissionPolicyOverride | null) => Promise<void>
-  handleWriteCloudflareTunnel: (patch: Partial<CloudflareTunnelSettings>) => Promise<void>
   handleWriteClaudeAuth: (patch: Partial<ClaudeAuthSettings>) => Promise<void>
   handleTestOAuthToken: (token: string) => Promise<{ ok: boolean; error: string | null }>
   handleReadLlmProvider: () => Promise<void>
@@ -761,24 +760,6 @@ export function useAppGlobalState(
       throw error
     }
   }, [socket])
-
-  const handleWriteCloudflareTunnel = useCallback(async (patch: Partial<CloudflareTunnelSettings>) => {
-    try {
-      useAppSettingsStore.getState().applyOptimisticPatch({ cloudflareTunnel: patch })
-      const snapshot = await socket.command<AppSettingsSnapshot>({
-        type: "appSettings.setCloudflareTunnel",
-        patch,
-      })
-      const store = useKannaStateStore.getState()
-      useAppSettingsStore.getState().setFromServer(snapshot)
-      useChatPreferencesStore.getState().applyServerDefaults(snapshot.defaultProvider, snapshot.providerDefaults)
-      store.setCommandError(null)
-    } catch (error) {
-      useKannaStateStore.getState().setCommandError(error instanceof Error ? error.message : String(error))
-      await handleReadAppSettings()
-      throw error
-    }
-  }, [handleReadAppSettings, socket])
 
   const handleWriteClaudeAuth = useCallback(async (patch: Partial<ClaudeAuthSettings>) => {
     try {
@@ -1314,7 +1295,6 @@ export function useAppGlobalState(
     handleStartMcpOAuth,
     handleCompleteMcpOAuth,
     handleSetChatPolicyOverride,
-    handleWriteCloudflareTunnel,
     handleWriteClaudeAuth,
     handleTestOAuthToken,
     handleReadLlmProvider,
@@ -1342,4 +1322,3 @@ export function useAppGlobalState(
     chatNavigator,
   }
 }
-

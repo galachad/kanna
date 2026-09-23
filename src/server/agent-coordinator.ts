@@ -30,7 +30,7 @@ import { ClaudeLimitDetector, CodexLimitDetector, type LimitDetection, type Limi
 import { ClaudeAuthErrorDetector, type AuthErrorDetection } from "./auto-continue/auth-error-detector"
 import type { ScheduleManager } from "./auto-continue/schedule-manager"
 import type { LoopState } from "./auto-continue/read-model"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import { OAuthTokenPool } from "./oauth-pool/oauth-token-pool"
 import { SubagentOrchestrator, type BackgroundRunOutcome, type ProviderRunStart } from "./subagent-orchestrator"
 import {
@@ -259,7 +259,7 @@ export class AgentCoordinator {
   readonly autoResumeByChat = new Map<string, boolean>()
   readonly openrouterFirstEntryTimeoutMs: number
   readonly tokenRotationDedupe = new Map<string, TokenRotationDedupeEntry>()
-  readonly tunnelGateway: TunnelGateway | null
+  readonly tunnelGateway: PortProxyGateway | null
   readonly oauthPool: OAuthTokenPool | null
   readonly toolCallback: ToolCallbackService | null
   readonly chatPolicy: ChatPermissionPolicy

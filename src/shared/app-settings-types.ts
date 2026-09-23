@@ -13,13 +13,6 @@ import {
   AUTH_SESSION_MAX_AGE_DAYS_MAX,
   AUTH_SESSION_MAX_AGE_DAYS_MIN,
 } from "./settings/auth"
-import type {
-  CloudflareTunnelMode,
-  CloudflareTunnelRecord,
-  CloudflareTunnelSettings,
-  CloudflareTunnelState,
-} from "./settings/cloudflare-tunnel"
-import { CLOUDFLARE_TUNNEL_DEFAULTS } from "./settings/cloudflare-tunnel"
 import type { PushSettings } from "./settings/push"
 import { PUSH_DEFAULTS } from "./settings/push"
 import type { TelemetrySettings } from "./settings/telemetry"
@@ -36,10 +29,6 @@ import type { InstalledPluginConfig, PluginSettings } from "./plugins/settings"
 import { PLUGIN_SETTINGS_DEFAULTS } from "./plugins/settings"
 export type {
   AuthSettings,
-  CloudflareTunnelMode,
-  CloudflareTunnelRecord,
-  CloudflareTunnelSettings,
-  CloudflareTunnelState,
   InstalledPluginConfig,
   PluginSettings,
   PushSettings,
@@ -51,7 +40,6 @@ export {
   AUTH_DEFAULTS,
   AUTH_SESSION_MAX_AGE_DAYS_MAX,
   AUTH_SESSION_MAX_AGE_DAYS_MIN,
-  CLOUDFLARE_TUNNEL_DEFAULTS,
   PLUGIN_SETTINGS_DEFAULTS,
   PUSH_DEFAULTS,
   TELEMETRY_DEFAULTS,
@@ -296,7 +284,6 @@ export interface AppSettingsSnapshot {
   providerDefaults: ChatProviderPreferences
   warning: string | null
   filePathDisplay: string
-  cloudflareTunnel: CloudflareTunnelSettings
   push: PushSettings
   telemetry: TelemetrySettings
   auth: AuthSettings
@@ -356,7 +343,6 @@ export interface AppSettingsPatch {
     codex?: Partial<ProviderPreference<CodexModelOptions>>
     openrouter?: Partial<ProviderPreference<OpenRouterModelOptions>>
   }
-  cloudflareTunnel?: Partial<CloudflareTunnelSettings>
   push?: Partial<PushSettings>
   telemetry?: Partial<TelemetrySettings>
   auth?: Partial<AuthSettings>
@@ -415,10 +401,6 @@ export function isChatSoundId(value: string): value is ChatSoundId {
     value === "blow" || value === "bottle" || value === "frog" || value === "funk" ||
     value === "glass" || value === "ping" || value === "pop" || value === "purr" || value === "tink"
   )
-}
-
-export function isCloudFlareTunnelMode(value: string): value is CloudflareTunnelMode {
-  return value === "always-ask" || value === "auto-expose"
 }
 
 export function isLlmProviderKind(value: string): value is LlmProviderKind {

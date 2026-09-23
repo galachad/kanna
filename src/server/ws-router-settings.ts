@@ -32,7 +32,6 @@ export interface ResolvedAppSettings {
   getSnapshot(): AppSettingsSnapshot
   write(value: { analyticsEnabled: boolean }): Promise<AppSettingsSnapshot>
   writePatch(patch: AppSettingsPatch): Promise<AppSettingsSnapshot>
-  setCloudflareTunnel(patch: Partial<AppSettingsSnapshot["cloudflareTunnel"]>): Promise<AppSettingsSnapshot>
   setClaudeAuth(patch: Partial<AppSettingsSnapshot["claudeAuth"]>): Promise<AppSettingsSnapshot>
   createSubagent(input: SubagentInput): Promise<Subagent | SubagentValidationError>
   updateSubagent(id: string, patch: SubagentPatch): Promise<Subagent | SubagentValidationError>
@@ -166,12 +165,6 @@ export async function handleSettingsCommand(
       if (!previousAnalyticsEnabled && command.analyticsEnabled) {
         resolvedAnalytics.track("analytics_enabled")
       }
-      return true
-    }
-    case "appSettings.setCloudflareTunnel": {
-      await resolvedAppSettings.setCloudflareTunnel(command.patch)
-      const snapshot = resolvedAppSettings.getSnapshot()
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
       return true
     }
     case "appSettings.setClaudeAuth": {

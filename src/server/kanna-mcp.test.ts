@@ -9,7 +9,7 @@ import { TASK_DOC_SECTIONS } from "../shared/task-doc"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
 import type { ArmedLoopInfo, KannaMcpDelegationContext, SetupLoopHandlerResult } from "./kanna-mcp"
 import type { MermaidParsePort } from "../shared/mermaid-validation"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 
 let tempRoot: string
 
@@ -103,7 +103,7 @@ const makeArgs = (toolCallback?: Parameters<typeof buildKannaMcpTools>[0]["toolC
   sessionId: "s",
   toolCallback,
   chatPolicy: POLICY_DEFAULT,
-  tunnelGateway: null,
+  portProxyGateway: null,
 })
 
 test("feature flag off → ask_user_question / exit_plan_mode NOT registered", () => {
@@ -156,7 +156,7 @@ test("feature flag on → all 8 new mcp__kanna__* tools registered", () => {
       sessionId: "s",
       toolCallback: stub as unknown as Parameters<typeof buildKannaMcpTools>[0]["toolCallback"],
       chatPolicy: POLICY_DEFAULT,
-      tunnelGateway: null,
+      portProxyGateway: null,
     })
     const names = tools.map((t) => t.name)
     for (const n of ["read", "glob", "grep", "bash", "edit", "write", "webfetch", "websearch"]) {
@@ -331,7 +331,7 @@ function buildKannaMcpForTest(opts: {
     chatId: "chat-test",
     sessionId: "s",
     chatPolicy: POLICY_DEFAULT,
-    tunnelGateway: null,
+    portProxyGateway: null,
     ...(opts.withDelegation
       ? {
           subagentOrchestrator: fakeOrchestrator as unknown as SubagentOrchestrator,
@@ -415,7 +415,7 @@ describe("schedule_wakeup tool removed", () => {
       chatId: "c",
       sessionId: "s",
       chatPolicy: POLICY_DEFAULT,
-      tunnelGateway: null,
+      portProxyGateway: null,
     } as const
     const tools = buildKannaMcpTools({ ...baseArgs })
     expect(tools.map((t) => t.name)).not.toContain("schedule_wakeup")
@@ -456,7 +456,7 @@ describe("setup_loop tool", () => {
     chatId: "c",
     sessionId: "s",
     chatPolicy: POLICY_DEFAULT,
-    tunnelGateway: null,
+    portProxyGateway: null,
   } as const
 
   function toolMap(tools: ReturnType<typeof buildKannaMcpTools>) {
@@ -675,7 +675,7 @@ describe("query_tracking_file + append_tracking_row tools", () => {
     chatId: "c",
     sessionId: "s",
     chatPolicy: POLICY_DEFAULT,
-    tunnelGateway: null,
+    portProxyGateway: null,
   })
 
   test("registered when chatId present; hidden when absent", () => {
@@ -1121,14 +1121,14 @@ describe("expose_port registration", () => {
   const gateway = {
     proposeFromTool: async (_args: { chatId: string; port: number }) =>
       ({ status: "proposed" as const }),
-  } as unknown as TunnelGateway
+  } as unknown as PortProxyGateway
 
-  test("is hidden when tunnelGateway is null", () => {
+  test("is hidden when portProxyGateway is null", () => {
     const tools = buildKannaMcpTools({
       projectId: "p",
       localPath: "/tmp",
       chatId: "c",
-      tunnelGateway: null,
+      portProxyGateway: null,
     })
     expect(tools.map((t) => t.name)).not.toContain("expose_port")
   })
@@ -1137,17 +1137,17 @@ describe("expose_port registration", () => {
     const tools = buildKannaMcpTools({
       projectId: "p",
       localPath: "/tmp",
-      tunnelGateway: gateway,
+      portProxyGateway: gateway,
     })
     expect(tools.map((t) => t.name)).not.toContain("expose_port")
   })
 
-  test("is registered when tunnelGateway and chatId are both present", () => {
+  test("is registered when portProxyGateway and chatId are both present", () => {
     const tools = buildKannaMcpTools({
       projectId: "p",
       localPath: "/tmp",
       chatId: "c",
-      tunnelGateway: gateway,
+      portProxyGateway: gateway,
     })
     expect(tools.map((t) => t.name)).toContain("expose_port")
   })

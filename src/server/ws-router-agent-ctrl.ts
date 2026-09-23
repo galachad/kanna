@@ -10,15 +10,13 @@ export interface AgentCtrlAgentDep {
   cancel(chatId: string): Promise<void>
 }
 
-export interface TunnelGatewayDep {
-  accept(chatId: string, tunnelId: string): Promise<void>
-  stop(chatId: string, tunnelId: string): Promise<void>
-  retry(chatId: string, tunnelId: string): Promise<void>
+export interface PortProxyGatewayDep {
+  stop(chatId: string, proxyId: string): Promise<void>
 }
 
 export interface AgentCtrlCommandDeps {
   agent: AgentCtrlAgentDep
-  tunnelGateway: TunnelGatewayDep | undefined
+  portProxyGateway: PortProxyGatewayDep | undefined
   killPtyInstance: ((chatId: string) => Promise<{ ok: boolean; error?: string }>) | undefined
   send: (envelope: ServerEnvelope) => void
   broadcastChatAndSidebar: (chatId: string) => Promise<void>
@@ -30,7 +28,7 @@ export async function handleAgentCtrlCommand(
   command: ClientCommand,
   id: string,
 ): Promise<boolean> {
-  const { agent, tunnelGateway, killPtyInstance, send, broadcastChatAndSidebar } = deps
+  const { agent, portProxyGateway, killPtyInstance, send, broadcastChatAndSidebar } = deps
 
   switch (command.type) {
     case "autoContinue.accept": {
@@ -74,25 +72,9 @@ export async function handleAgentCtrlCommand(
       await broadcastChatAndSidebar(command.chatId)
       return true
     }
-    case "tunnel.accept": {
-      if (tunnelGateway) {
-        await tunnelGateway.accept(command.chatId, command.tunnelId)
-      }
-      send({ v: PROTOCOL_VERSION, type: "ack", id })
-      await broadcastChatAndSidebar(command.chatId)
-      return true
-    }
-    case "tunnel.stop": {
-      if (tunnelGateway) {
-        await tunnelGateway.stop(command.chatId, command.tunnelId)
-      }
-      send({ v: PROTOCOL_VERSION, type: "ack", id })
-      await broadcastChatAndSidebar(command.chatId)
-      return true
-    }
-    case "tunnel.retry": {
-      if (tunnelGateway) {
-        await tunnelGateway.retry(command.chatId, command.tunnelId)
+    case "proxy.stop": {
+      if (portProxyGateway) {
+        await portProxyGateway.stop(command.chatId, command.proxyId)
       }
       send({ v: PROTOCOL_VERSION, type: "ack", id })
       await broadcastChatAndSidebar(command.chatId)

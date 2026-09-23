@@ -14,7 +14,6 @@ import { normalizePackageUpdateSettings } from "./app-settings-package-updates"
 import { mergePluginPatch, normalizePluginState } from "./plugins/plugin-settings"
 import {
   normalizeAuthSettings,
-  normalizeCloudflareTunnelSettings,
   normalizePushSettings,
   normalizeTelemetrySettings,
   normalizeTypographySettings,
@@ -64,7 +63,6 @@ import {
   type ClaudeDriverSettings,
   type ClaudeModelOptions,
   type ClaudePtyLifecycleSettings,
-  type CloudflareTunnelSettings,
   type CodexModelOptions,
   type OpenRouterModelOptions,
   type ClaudeReasoningEffort,
@@ -128,7 +126,6 @@ interface AppSettingsFile {
     codex?: Partial<ProviderPreference<Partial<CodexModelOptions>>> & { effort?: string }
     openrouter?: Partial<ProviderPreference<Record<string, never>>>
   }
-  cloudflareTunnel?: JsonObject
   push?: JsonObject
   telemetry?: JsonObject
   auth?: JsonObject
@@ -906,7 +903,6 @@ function normalizeAppSettings<T>(
     warnings.push("analyticsUserId must be a non-empty string")
   }
 
-  const cloudflareTunnel = normalizeCloudflareTunnelSettings(source?.cloudflareTunnel, warnings)
   const push = normalizePushSettings(source?.push, warnings)
   const telemetry = normalizeTelemetrySettings(source?.telemetry, warnings)
   const auth = normalizeAuthSettings(source?.auth, warnings)
@@ -956,7 +952,6 @@ function normalizeAppSettings<T>(
     providerDefaults: normalizeProviderDefaults(source?.providerDefaults, customModels),
     warning: null,
     filePathDisplay: formatDisplayPath(filePath),
-    cloudflareTunnel,
     push,
     telemetry,
     auth,
@@ -1563,10 +1558,6 @@ function applyPatch(state: AppSettingsState, patch: AppSettingsPatch): AppSettin
         modelOptions: {},
       },
     },
-    cloudflareTunnel: {
-      ...state.cloudflareTunnel,
-      ...patch.cloudflareTunnel,
-    },
     push: {
       ...state.push,
       ...patch.push,
@@ -1681,13 +1672,6 @@ export class AppSettingsManager {
 
   async write(value: { analyticsEnabled: boolean }) {
     return this.writePatch({ analyticsEnabled: value.analyticsEnabled })
-  }
-
-  async setCloudflareTunnel(patch: Partial<CloudflareTunnelSettings>) {
-    if (patch.mode !== undefined && patch.mode !== "always-ask" && patch.mode !== "auto-expose") {
-      throw new Error("Invalid cloudflareTunnel.mode")
-    }
-    return this.writePatch({ cloudflareTunnel: patch })
   }
 
   async setAuth(patch: Partial<AuthSettings>) {

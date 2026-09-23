@@ -16,7 +16,7 @@ import type { KannaMcpDelegationContext, SetupLoopHandlerResult } from "./kanna-
 import type { LoopSetupInput } from "./loop-template"
 import type { LimitDetector } from "./auto-continue/limit-detector"
 import type { ScheduleManager } from "./auto-continue/schedule-manager"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { OAuthTokenPool } from "./oauth-pool/oauth-token-pool"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
 import type { ToolCallbackService } from "./tool-callback"
@@ -53,7 +53,7 @@ export interface AgentCoordinatorArgs {
   analytics?: AnalyticsReporter
   codexManager?: CodexAppServerManager
   generateTitle?: (messageContent: string, cwd: string) => Promise<GenerateChatTitleResult>
-  tunnelGateway?: TunnelGateway
+  tunnelGateway?: PortProxyGateway
   startClaudeSession?: (args: {
     projectId: string
     localPath: string
@@ -65,7 +65,7 @@ export interface AgentCoordinatorArgs {
     oauthToken: string | null
     additionalDirectories?: string[]
     chatId?: string
-    tunnelGateway?: TunnelGateway | null
+    tunnelGateway?: PortProxyGateway | null
     onToolRequest: (request: HarnessToolRequest) => Promise<JsonValue>
     systemPromptAppend?: string
     openrouterApiKey?: string | null

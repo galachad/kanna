@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test"
-import type { CloudflareTunnelEvent } from "./cloudflare-tunnel/events"
+import type { PortProxyEvent } from "./port-proxy/events"
 import type { PushEvent } from "./push/events"
 import type { ShareEvent } from "./session-share/share-projection"
 import type { StorageBackend } from "./storage/backend"
 import {
+  appendPortProxyEvent,
   appendPushEvent,
   appendShareEvent,
-  appendTunnelEvent,
+  getPortProxyEvents,
   getShareEvents,
-  getTunnelEvents,
-  listTunnelChats,
+  listPortProxyChats,
   loadPushEvents,
+  loadPortProxyEvents,
   loadShareEvents,
-  loadTunnelEvents,
   type PeripheralEventsDeps,
 } from "./event-store-peripheral-events.adapter"
 
@@ -44,10 +44,10 @@ function makeDeps(overrides: Partial<PeripheralEventsDeps> = {}): PeripheralEven
   const wc = makeWriteChainRef()
   return {
     storage: makeStorage(),
-    tunnelLogPath: "/data/tunnels.jsonl",
+    portProxyLogPath: "/data/port-proxies.jsonl",
     sharesLogPath: "/data/shares.jsonl",
     pushLogPath: "/data/push.jsonl",
-    tunnelEventsByChatId: new Map(),
+    portProxyEventsByChatId: new Map(),
     shareEventsAll: [],
     getWriteChain: wc.getWriteChain,
     setWriteChain: wc.setWriteChain,
@@ -55,8 +55,8 @@ function makeDeps(overrides: Partial<PeripheralEventsDeps> = {}): PeripheralEven
   }
 }
 
-function makeTunnelEvent(chatId = "chat-1"): CloudflareTunnelEvent {
-  return { type: "tunnel_started", chatId, tunnelId: "t-1", url: "https://ex.trycloudflare.com", timestamp: 1000 } as unknown as CloudflareTunnelEvent
+function makePortProxyEvent(chatId = "chat-1"): PortProxyEvent {
+  return { v: 1, kind: "port_proxy_started", chatId, proxyId: "p-1", port: 3000, url: "https://kanna.test/port-proxy/3000", timestamp: 1000 }
 }
 
 function makeShareEvent(chatId = "chat-1"): ShareEvent {
@@ -68,94 +68,94 @@ function makePushEvent(): PushEvent {
 }
 
 
-describe("getTunnelEvents", () => {
+describe("getPortProxyEvents", () => {
   test("returns empty array for unknown chatId", () => {
     const deps = makeDeps()
-    expect(getTunnelEvents(deps, "no-chat")).toEqual([])
+    expect(getPortProxyEvents(deps, "no-chat")).toEqual([])
   })
 
   test("returns list for known chatId", () => {
-    const ev = makeTunnelEvent("chat-a")
-    const tunnelEventsByChatId = new Map([["chat-a", [ev]]])
-    const deps = makeDeps({ tunnelEventsByChatId })
-    expect(getTunnelEvents(deps, "chat-a")).toEqual([ev])
+    const ev = makePortProxyEvent("chat-a")
+    const portProxyEventsByChatId = new Map([["chat-a", [ev]]])
+    const deps = makeDeps({ portProxyEventsByChatId })
+    expect(getPortProxyEvents(deps, "chat-a")).toEqual([ev])
   })
 
   test("returns a copy (not the original array)", () => {
-    const ev = makeTunnelEvent("chat-a")
-    const inner: CloudflareTunnelEvent[] = [ev]
-    const tunnelEventsByChatId = new Map([["chat-a", inner]])
-    const deps = makeDeps({ tunnelEventsByChatId })
-    const result = getTunnelEvents(deps, "chat-a")
+    const ev = makePortProxyEvent("chat-a")
+    const inner: PortProxyEvent[] = [ev]
+    const portProxyEventsByChatId = new Map([["chat-a", inner]])
+    const deps = makeDeps({ portProxyEventsByChatId })
+    const result = getPortProxyEvents(deps, "chat-a")
     expect(result).toEqual([ev])
     expect(result).not.toBe(inner)
   })
 })
 
-describe("listTunnelChats", () => {
+describe("listPortProxyChats", () => {
   test("returns empty array when no chats", () => {
     const deps = makeDeps()
-    expect(listTunnelChats(deps)).toEqual([])
+    expect(listPortProxyChats(deps)).toEqual([])
   })
 
-  test("returns all chatIds with tunnel events", () => {
-    const tunnelEventsByChatId = new Map([
-      ["c1", [makeTunnelEvent("c1")]],
-      ["c2", [makeTunnelEvent("c2")]],
+  test("returns all chatIds with proxy events", () => {
+    const portProxyEventsByChatId = new Map([
+      ["c1", [makePortProxyEvent("c1")]],
+      ["c2", [makePortProxyEvent("c2")]],
     ])
-    const deps = makeDeps({ tunnelEventsByChatId })
-    expect(listTunnelChats(deps)).toEqual(expect.arrayContaining(["c1", "c2"]))
+    const deps = makeDeps({ portProxyEventsByChatId })
+    expect(listPortProxyChats(deps)).toEqual(expect.arrayContaining(["c1", "c2"]))
   })
 })
 
-describe("appendTunnelEvent", () => {
-  test("writes to tunnelLogPath and updates in-memory map", async () => {
-    const files = new Map([[ "/data/tunnels.jsonl", "" ]])
+describe("appendPortProxyEvent", () => {
+  test("writes to portProxyLogPath and updates in-memory map", async () => {
+    const files = new Map([[ "/data/port-proxies.jsonl", "" ]])
     const storage = makeStorage(files)
     const deps = makeDeps({ storage })
-    const ev = makeTunnelEvent("chat-1")
+    const ev = makePortProxyEvent("chat-1")
 
-    await appendTunnelEvent(deps, ev)
+    await appendPortProxyEvent(deps, ev)
 
-    const content = files.get("/data/tunnels.jsonl") ?? ""
+    const content = files.get("/data/port-proxies.jsonl") ?? ""
     expect(content.trim()).toBe(JSON.stringify(ev))
 
-    expect(getTunnelEvents(deps, "chat-1")).toEqual([ev])
+    expect(getPortProxyEvents(deps, "chat-1")).toEqual([ev])
   })
 
   test("chains multiple appends in order", async () => {
-    const files = new Map([["/data/tunnels.jsonl", ""]])
+    const files = new Map([["/data/port-proxies.jsonl", ""]])
     const storage = makeStorage(files)
     const deps = makeDeps({ storage })
-    const ev1 = { ...makeTunnelEvent("chat-1"), tunnelId: "t-1" }
-    const ev2 = { ...makeTunnelEvent("chat-1"), tunnelId: "t-2" }
+    const ev1 = { ...makePortProxyEvent("chat-1"), proxyId: "p-1" }
+    const ev2 = { ...makePortProxyEvent("chat-1"), proxyId: "p-2" }
 
-    await Promise.all([appendTunnelEvent(deps, ev1), appendTunnelEvent(deps, ev2)])
+    await Promise.all([appendPortProxyEvent(deps, ev1), appendPortProxyEvent(deps, ev2)])
 
-    const lines = (files.get("/data/tunnels.jsonl") ?? "").trim().split("\n")
+    const lines = (files.get("/data/port-proxies.jsonl") ?? "").trim().split("\n")
     expect(lines.length).toBe(2)
-    expect(JSON.parse(lines[0]!).tunnelId).toBe("t-1")
-    expect(JSON.parse(lines[1]!).tunnelId).toBe("t-2")
+    expect(JSON.parse(lines[0]!).proxyId).toBe("p-1")
+    expect(JSON.parse(lines[1]!).proxyId).toBe("p-2")
   })
 })
 
-describe("loadTunnelEvents", () => {
+describe("loadPortProxyEvents", () => {
   test("populates in-memory map from disk", async () => {
-    const ev = makeTunnelEvent("chat-x")
-    const files = new Map([["/data/tunnels.jsonl", `${JSON.stringify(ev)}\n`]])
+    const ev = makePortProxyEvent("chat-x")
+    const files = new Map([["/data/port-proxies.jsonl", `${JSON.stringify(ev)}\n`]])
     const storage = makeStorage(files)
-    const tunnelEventsByChatId = new Map<string, CloudflareTunnelEvent[]>()
-    const deps = makeDeps({ storage, tunnelEventsByChatId })
+    const portProxyEventsByChatId = new Map<string, PortProxyEvent[]>()
+    const deps = makeDeps({ storage, portProxyEventsByChatId })
 
-    await loadTunnelEvents(deps)
+    await loadPortProxyEvents(deps)
 
-    expect(getTunnelEvents(deps, "chat-x")).toEqual([ev])
+    expect(getPortProxyEvents(deps, "chat-x")).toEqual([ev])
   })
 
   test("handles empty log file without errors", async () => {
-    const files = new Map([["/data/tunnels.jsonl", ""]])
+    const files = new Map([["/data/port-proxies.jsonl", ""]])
     const deps = makeDeps({ storage: makeStorage(files) })
-    await expect(loadTunnelEvents(deps)).resolves.toBeUndefined()
+    await expect(loadPortProxyEvents(deps)).resolves.toBeUndefined()
   })
 })
 

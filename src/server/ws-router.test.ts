@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { AUTH_DEFAULTS, CLAUDE_AUTH_DEFAULTS, CLAUDE_DRIVER_DEFAULTS, CLAUDE_PTY_LIFECYCLE_DEFAULTS, CLOUDFLARE_TUNNEL_DEFAULTS, DEFAULT_OPENROUTER_SDK_MODEL, EMPTY_CHAT_ACTIVITY, PACKAGE_UPDATE_SETTINGS_DEFAULTS, PLUGIN_SETTINGS_DEFAULTS, PROTOCOL_VERSION, PUSH_DEFAULTS,
+import { AUTH_DEFAULTS, CLAUDE_AUTH_DEFAULTS, CLAUDE_DRIVER_DEFAULTS, CLAUDE_PTY_LIFECYCLE_DEFAULTS, DEFAULT_OPENROUTER_SDK_MODEL, EMPTY_CHAT_ACTIVITY, PACKAGE_UPDATE_SETTINGS_DEFAULTS, PLUGIN_SETTINGS_DEFAULTS, PROTOCOL_VERSION, PUSH_DEFAULTS,
   TELEMETRY_DEFAULTS, TYPOGRAPHY_DEFAULTS, UPLOAD_DEFAULTS } from "../shared/types"
 import { BUILTIN_SLASH_COMMANDS } from "../shared/builtin-commands"
 import type { AppSettingsSnapshot, ChatActivity, KeybindingsSnapshot, LlmProviderSnapshot, McpServerConfig, McpServerTestResult, OpenRouterModel, UpdateSnapshot } from "../shared/types"
@@ -85,7 +85,6 @@ const DEFAULT_KEYBINDINGS_SNAPSHOT: KeybindingsSnapshot = {
 
 const DEFAULT_APP_SETTINGS_SNAPSHOT: AppSettingsSnapshot = {
   analyticsEnabled: true,
-  cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
   push: PUSH_DEFAULTS,
   telemetry: TELEMETRY_DEFAULTS,
   auth: AUTH_DEFAULTS,
@@ -474,8 +473,7 @@ describe("ws-router", () => {
             analyticsEnabled: value.analyticsEnabled,
           }
         },
-        setCloudflareTunnel: async (_patch) => ({ ...DEFAULT_APP_SETTINGS_SNAPSHOT }),
-      },
+        },
       refreshDiscovery: async () => [],
       getDiscoveredProjects: () => [],
       machineDisplayName: "Local Machine",
@@ -675,8 +673,7 @@ describe("ws-router", () => {
             analyticsEnabled: value.analyticsEnabled,
           }
         },
-        setCloudflareTunnel: async (_patch) => ({ ...DEFAULT_APP_SETTINGS_SNAPSHOT }),
-      },
+        },
       analytics: {
         track: (eventName: string) => {
           analyticsEvents.push(eventName)
@@ -1504,7 +1501,7 @@ describe("ws-router", () => {
 
     const store = {
       state,
-      getTunnelEvents: (_chatId: string) => [] as never[],
+      getPortProxyEvents: (_chatId: string) => [] as never[],
       async setChatReadState(chatId: string, unread: boolean) {
         const chat = state.chatsById.get(chatId)
         if (!chat) throw new Error("Chat not found")
@@ -2337,7 +2334,7 @@ describe("ws-router", () => {
         getChat: (chatId: string) => state.chatsById.get(chatId) ?? null,
         getProject: (projectId: string) => state.projectsById.get(projectId) ?? null,
         getRecentChatHistory: () => ({ entries: [], hasOlder: false, olderCursor: null }),
-        getTunnelEvents: (_chatId: string) => [] as never[],
+        getPortProxyEvents: (_chatId: string) => [] as never[],
       } as never,
       diffStore: diffStore as never,
       agent: { getActiveStatuses: () => new Map(), getDrainingChatIds: () => new Set(), getWaitStartedAtByChatId: () => new Map() } as never,

@@ -6,7 +6,7 @@ import { log } from "../shared/log"
 import type { AgentProvider, TranscriptEntry } from "../shared/types"
 import { STORE_VERSION } from "../shared/types"
 import type { StorageBackend } from "./storage/backend"
-import type { CloudflareTunnelEvent } from "./cloudflare-tunnel/events"
+import type { PortProxyEvent } from "./port-proxy/events"
 import type { PushEvent } from "./push/events"
 import type { ShareEvent } from "./session-share/share-projection"
 import { compactCronRunEvents } from "./cron/compact"
@@ -497,31 +497,31 @@ export async function migrateLegacyTranscripts(
 }
 
 
-export function applyTunnelEventToMap(
-  tunnelEventsByChatId: Map<string, CloudflareTunnelEvent[]>,
-  event: CloudflareTunnelEvent,
+export function applyPortProxyEventToMap(
+  portProxyEventsByChatId: Map<string, PortProxyEvent[]>,
+  event: PortProxyEvent,
 ): void {
-  const existing = tunnelEventsByChatId.get(event.chatId) ?? []
+  const existing = portProxyEventsByChatId.get(event.chatId) ?? []
   existing.push(event)
-  tunnelEventsByChatId.set(event.chatId, existing)
+  portProxyEventsByChatId.set(event.chatId, existing)
 }
 
-export async function loadTunnelEventsFromLog(
+export async function loadPortProxyEventsFromLog(
   storage: StorageBackend,
-  tunnelLogPath: string,
-  tunnelEventsByChatId: Map<string, CloudflareTunnelEvent[]>,
+  portProxyLogPath: string,
+  portProxyEventsByChatId: Map<string, PortProxyEvent[]>,
 ): Promise<void> {
-  if (!(await storage.exists(tunnelLogPath))) return
-  const text = await storage.readText(tunnelLogPath)
+  if (!(await storage.exists(portProxyLogPath))) return
+  const text = await storage.readText(portProxyLogPath)
   if (!text.trim()) return
   for (const rawLine of text.split("\n")) {
     const line = rawLine.trim()
     if (!line) continue
     try {
-      const event: CloudflareTunnelEvent = JSON.parse(line)
-      applyTunnelEventToMap(tunnelEventsByChatId, event)
+      const event: PortProxyEvent = JSON.parse(line)
+      applyPortProxyEventToMap(portProxyEventsByChatId, event)
     } catch {
-      log.warn(`${LOG_PREFIX} Ignoring malformed line in tunnels.jsonl`)
+      log.warn(`${LOG_PREFIX} Ignoring malformed line in port-proxy.jsonl`)
     }
   }
 }

@@ -30,7 +30,7 @@ import { TranscriptRenderOptionsProvider } from "../../components/messages/rende
 import type { ProcessedToolCall } from "../../components/messages/types"
 import { renderChatLinks } from "../../components/messages/renderChatLinks"
 import React from "react"
-import { CloudflareTunnelCard } from "../../components/chat-ui/CloudflareTunnelCard"
+import { PortProxyCard } from "../../components/chat-ui/PortProxyCard"
 import {
   CHAT_NAVBAR_OFFSET_PX,
   EMPTY_STATE_TEXT,
@@ -153,11 +153,9 @@ export const ChatTranscriptViewport = memo(({
     schedules,
     cronJobs,
     onAutoContinueAccept,
-    tunnels,
-    liveTunnelId,
-    onTunnelAccept,
-    onTunnelStop,
-    onTunnelRetry,
+    proxies,
+    liveProxyId,
+    onProxyStop,
     subagentRuns,
     onCancelSubagentRun,
     loopProgress,
@@ -414,7 +412,7 @@ export const ChatTranscriptViewport = memo(({
     </div>
   )
 
-  const liveTunnelRecord = liveTunnelId && tunnels ? tunnels[liveTunnelId] : undefined
+  const liveProxyRecord = liveProxyId && proxies ? proxies[liveProxyId] : undefined
 
   const listFooter = (
     <div className="mx-auto w-full max-w-[800px] pt-4">
@@ -440,14 +438,11 @@ export const ChatTranscriptViewport = memo(({
           />
         </div>
       ) : null}
-      {liveTunnelRecord && onTunnelAccept && onTunnelStop && onTunnelRetry && (
+      {liveProxyRecord && onProxyStop && (
         <div className="pb-4">
-          <CloudflareTunnelCard
-            record={liveTunnelRecord}
-            onAccept={onTunnelAccept}
-            onStop={onTunnelStop}
-            onRetry={onTunnelRetry}
-            onDismiss={onTunnelStop}
+          <PortProxyCard
+            record={liveProxyRecord}
+            onStop={onProxyStop}
           />
         </div>
       )}
@@ -526,7 +521,7 @@ export const ChatTranscriptViewport = memo(({
         <LegendList<ResolvedTranscriptRow>
           ref={listRef}
           data={resolvedRows}
-          extraData={{ toolGroupExpanded, schedules, tunnels, liveTunnelId }}
+          extraData={{ toolGroupExpanded, schedules, proxies, liveProxyId }}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           estimatedItemSize={48}

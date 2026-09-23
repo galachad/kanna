@@ -46,7 +46,7 @@ export const PATTERN_BUDGETS: readonly PatternBudget[] = [
     id: "deps-bundles",
     include: ["src/server/"],
     pattern: "interface [A-Za-z]*Deps\\b|type [A-Za-z]*Deps\\b *=|deps: \\{$",
-    max: 83,
+    max: 82,
     issue: 893,
     rationale:
       "Each deps bundle is a hand-maintained slice of the coordinator's fields. Every field is optional, so a builder that omits one compiles and the consumer's fallback is indistinguishable from the feature being off — this is how getArmedLoop shipped declared-but-never-passed. Respelling a bundle as a type alias or an inline parameter object removes nothing, so all three spellings count. Re-baselined 85 → 83 when the file-based loop tracking (TaskQueueToolDeps and its adapters) was replaced by the event-sourced chat-task store, whose one bundle is ChatTaskToolDeps.",
@@ -82,7 +82,7 @@ export const PATTERN_BUDGETS: readonly PatternBudget[] = [
     id: "untyped-command-results",
     include: ["src/client/"],
     pattern: "\\.command<",
-    max: 60,
+    max: 59,
     issue: 899,
     rationale:
       "socket.command<TResult> takes the result type as a free parameter with no relation to the command passed, so every explicit type argument is an unchecked assertion and a handler changing its return shape breaks zero call sites at compile time.",
@@ -118,7 +118,7 @@ export const PATTERN_BUDGETS: readonly PatternBudget[] = [
     id: "settings-bound-throws",
     include: ["src/server/app-settings.ts"],
     pattern: "throw new Error\\(",
-    max: 14,
+    max: 13,
     issue: 898,
     rationale:
       "Each restates a bound that a normalize* function also enforces, with opposite semantics — the WS path throws where the file path clamps, so the same out-of-range value is rejected or silently corrected depending on how it arrived.",

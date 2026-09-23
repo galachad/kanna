@@ -25,7 +25,7 @@ import type {
 } from "../shared/types"
 import { importClaudeSessions, importSessionsByIds } from "./claude-session-importer.adapter"
 import { listWorktrees } from "./worktree-store.adapter"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { PushManager } from "./push/push-manager"
 import type { SessionShareService } from "./session-share"
 import type { PtyInstanceRegistry } from "./claude-pty/pty-instance-registry"
@@ -89,9 +89,9 @@ interface CreateWsRouterArgs {
   terminals: TerminalManager
   keybindings: KeybindingsManager
   appSettings?: Pick<AppSettingsManager, "getSnapshot" | "write">
-    & Partial<Pick<AppSettingsManager, "setCloudflareTunnel" | "setClaudeAuth" | "writePatch" | "onChange" | "createSubagent" | "updateSubagent" | "deleteSubagent">>
+    & Partial<Pick<AppSettingsManager, "setClaudeAuth" | "writePatch" | "onChange" | "createSubagent" | "updateSubagent" | "deleteSubagent">>
   analytics?: AnalyticsReporter
-  tunnelGateway?: TunnelGateway
+  portProxyGateway?: PortProxyGateway
   llmProvider?: {
     read: () => Promise<LlmProviderSnapshot>
     write: (value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">) => Promise<LlmProviderSnapshot>
@@ -128,7 +128,7 @@ export function createWsRouter({
   keybindings,
   appSettings,
   analytics,
-  tunnelGateway,
+  portProxyGateway,
   llmProvider,
   listOpenRouterModels,
   refreshDiscovery,
@@ -222,7 +222,7 @@ export function createWsRouter({
   function buildAgentCtrlDeps(ws: ServerWebSocket<ClientState>): AgentCtrlCommandDeps {
     return {
       agent,
-      tunnelGateway,
+      portProxyGateway,
       killPtyInstance,
       send: (envelope) => send(ws, envelope),
       broadcastChatAndSidebar: (chatId) => broadcast.broadcastChatAndSidebar(chatId),

@@ -2,14 +2,11 @@ import path from "node:path"
 import type { Server } from "bun"
 import { isErrnoException } from "../shared/errors"
 import { serveHttp } from "./server-io.adapter"
-import { bin as cloudflaredBin } from "cloudflared"
 import { getRuntimeProfile } from "../shared/branding"
 import {
-  CLOUDFLARE_TUNNEL_DEFAULTS,
   UPLOAD_MAX_FILE_SIZE_MB_MAX,
   type AppSettingsSnapshot,
 } from "../shared/types"
-import type { ShareMode } from "../shared/share"
 import { createAuthManager } from "./auth"
 import { createAuthSessionStore } from "./auth-session-store.adapter"
 import { EventStore } from "./event-store"
@@ -70,9 +67,7 @@ import { ScheduleManager } from "./auto-continue/schedule-manager"
 import { CronScheduler } from "./cron/scheduler"
 import { OAuthTokenPool } from "./oauth-pool/oauth-token-pool"
 import { setQuickResponseOAuthPool } from "./quick-response"
-import { TunnelGateway } from "./cloudflare-tunnel/gateway"
-import { TunnelManager } from "./cloudflare-tunnel/tunnel-manager.adapter"
-import { TunnelLifecycle } from "./cloudflare-tunnel/lifecycle"
+import { PortProxyGateway } from "./port-proxy/gateway"
 import { initToolCallbackOnBoot, type ToolCallbackService } from "./tool-callback"
 import { SessionShareService } from "./session-share"
 import { recoverQueuedMessages } from "./queued-message-recovery"
@@ -107,11 +102,6 @@ function parsePositiveIntEnv(raw: string | undefined, fallback: number): number 
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
-function resolveCloudflaredPath(settingsPath: string): string {
-  if (settingsPath !== CLOUDFLARE_TUNNEL_DEFAULTS.cloudflaredPath) return settingsPath
-  return cloudflaredBin
-}
-
 export interface AgentAppSettingsView {
   claudeDriver: AppSettingsSnapshot["claudeDriver"]
   globalPromptAppend: AppSettingsSnapshot["globalPromptAppend"]
@@ -143,7 +133,6 @@ export interface StartKannaServerOptions {
   port?: number
   host?: string
   openBrowser?: boolean
-  share?: ShareMode
   dataDir?: string
   distDir?: string
   password?: string | null
@@ -175,7 +164,7 @@ interface ApplicationServices {
   router: ReturnType<typeof createWsRouter>
   appSettings: AppSettingsManager
   keybindings: KeybindingsManager
-  tunnelGateway: TunnelGateway
+  portProxyGateway: PortProxyGateway
   pushManager: PushManager
   sessionShareService: SessionShareService
   observability: ReturnType<typeof initObservability>
@@ -370,22 +359,10 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     timer: { setInterval, clearInterval },
     now: Date.now, hasAnyChatBusy: () => agent.hasAnyChatBusy(),
   })
-  const tunnelManager = new TunnelManager({
-    cloudflaredPath: resolveCloudflaredPath(appSettings.getSnapshot().cloudflareTunnel.cloudflaredPath),
-    onEvent: async (event) => {
-      await store.appendTunnelEvent(event)
-      broadcastChatState?.(event.chatId)
-    },
-  })
-  const tunnelLifecycle = new TunnelLifecycle({
-    onSourceExit: (tunnelId) => { void tunnelManager.stop(tunnelId, "source_exited") },
-  })
-  const tunnelGateway = new TunnelGateway({
-    manager: tunnelManager,
-    lifecycle: tunnelLifecycle,
-    settings: appSettings,
+  const portProxyGateway = new PortProxyGateway({
     store,
     broadcast: (chatId) => broadcastChatState?.(chatId),
+    getBaseUrl: () => `http://${options.host ?? "127.0.0.1"}:${options.port ?? 3210}`,
   })
   const oauthPool = new OAuthTokenPool(
     () => appSettings.getSnapshot().claudeAuth.tokens,
@@ -427,7 +404,7 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     codexLimitDetector: options.agentOverrides?.codexLimitDetector,
     throwOnClaudeSessionStart: options.agentOverrides?.throwOnClaudeSessionStart,
     analytics,
-    tunnelGateway,
+    tunnelGateway: portProxyGateway,
     oauthPool,
     toolCallback,
     claudePtyRegistry,
@@ -553,7 +530,7 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     keybindings,
     appSettings,
     analytics,
-    tunnelGateway,
+    portProxyGateway,
     llmProvider: {
       read: readLlmProviderSnapshot,
       write: writeLlmProviderSnapshot,
@@ -614,7 +591,7 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     router,
     appSettings,
     keybindings,
-    tunnelGateway,
+    portProxyGateway,
     pushManager,
     sessionShareService,
     observability,
@@ -657,7 +634,7 @@ function rehydrateScheduledWork(services: ApplicationServices): void {
 
 async function shutdownServices(services: ApplicationServices, server: Server<ClientState>): Promise<void> {
   const { store, agent, auth, appSettings, keybindings, scheduleManager, cronScheduler,
-    tunnelGateway, snapshotSweepHandle, observability, staleEmptyChatPruneInterval,
+    portProxyGateway, snapshotSweepHandle, observability, staleEmptyChatPruneInterval,
     followedSessionTickInterval, router, terminals, packageUpdateManager } = services
 
   packageUpdateManager.stop()
@@ -665,7 +642,7 @@ async function shutdownServices(services: ApplicationServices, server: Server<Cl
   keybindings.dispose()
   scheduleManager.shutdown()
   const cronDrain = cronScheduler.shutdown()
-  tunnelGateway.shutdown()
+  portProxyGateway.shutdown()
   snapshotSweepHandle.stop()
   await observability.shutdown()
   clearInterval(staleEmptyChatPruneInterval)
@@ -722,15 +699,14 @@ export async function startKannaServer(options: StartKannaServerOptions = {}) {
     }
   }
 
-  await services.tunnelGateway.reapOrphanedTunnels()
-
   const boundPort = server.port ?? actualPort
+  services.portProxyGateway.setBaseUrl(`http://${hostname}:${boundPort}`)
+  await services.portProxyGateway.reapOrphanedProxies()
 
   analytics.trackLaunch({
     port: boundPort,
     host: hostname,
     openBrowser: options.openBrowser ?? true,
-    share: options.share ?? false,
     password: options.password ?? null,
     strictPort,
   })

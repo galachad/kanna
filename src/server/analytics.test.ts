@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test"
-import { CLOUDFLARE_TUNNEL_DEFAULTS } from "../shared/types"
 import { KannaAnalyticsReporter, getLaunchAnalyticsProperties } from "./analytics"
 
 const originalLogAnalytics = process.env.KANNA_LOG_ANALYTICS
@@ -18,7 +17,6 @@ describe("getLaunchAnalyticsProperties", () => {
       port: 4000,
       host: "0.0.0.0",
       openBrowser: false,
-      share: "quick",
       password: "secret",
       strictPort: true,
     })).toEqual({
@@ -28,8 +26,6 @@ describe("getLaunchAnalyticsProperties", () => {
       strict_port_enabled: true,
       remote_enabled: true,
       host_enabled: false,
-      share_quick_enabled: true,
-      share_token_enabled: false,
     })
   })
 })
@@ -49,7 +45,6 @@ describe("KannaAnalyticsReporter", () => {
           getState: () => ({
             analyticsEnabled: true,
             analyticsUserId: "anon_123",
-            cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
             warning: null,
             filePathDisplay: "~/.kanna/data/settings.json",
           }),
@@ -95,7 +90,6 @@ describe("KannaAnalyticsReporter", () => {
         getState: () => ({
           analyticsEnabled: true,
           analyticsUserId: "anon_123",
-          cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
           warning: null,
           filePathDisplay: "~/.kanna/data/settings.json",
         }),
@@ -110,7 +104,6 @@ describe("KannaAnalyticsReporter", () => {
       port: 4000,
       host: "localhost",
       openBrowser: false,
-      share: false,
       password: null,
       strictPort: true,
     })
@@ -130,8 +123,6 @@ describe("KannaAnalyticsReporter", () => {
           strict_port_enabled: true,
           remote_enabled: false,
           host_enabled: false,
-          share_quick_enabled: false,
-          share_token_enabled: false,
         },
       },
     })
@@ -146,7 +137,6 @@ describe("KannaAnalyticsReporter", () => {
         getState: () => ({
           analyticsEnabled: false,
           analyticsUserId: "anon_123",
-          cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
           warning: null,
           filePathDisplay: "~/.kanna/data/settings.json",
         }),
@@ -180,7 +170,6 @@ describe("KannaAnalyticsReporter", () => {
           getState: () => ({
             analyticsEnabled: true,
             analyticsUserId: "anon_123",
-            cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
             warning: null,
             filePathDisplay: "~/.kanna/data/settings.json",
           }),
@@ -215,7 +204,6 @@ describe("KannaAnalyticsReporter", () => {
           getState: () => ({
             analyticsEnabled: true,
             analyticsUserId: "anon_123",
-            cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
             warning: null,
             filePathDisplay: "~/.kanna/data/settings.json",
           }),
@@ -253,7 +241,6 @@ describe("KannaAnalyticsReporter", () => {
           getState: () => ({
             analyticsEnabled: true,
             analyticsUserId: "anon_123",
-            cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
             warning: null,
             filePathDisplay: "~/.kanna/data/settings.json",
           }),
@@ -293,7 +280,6 @@ describe("KannaAnalyticsReporter", () => {
           getState: () => ({
             analyticsEnabled: true,
             analyticsUserId: "anon_123",
-            cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
             warning: null,
             filePathDisplay: "~/.kanna/data/settings.json",
           }),

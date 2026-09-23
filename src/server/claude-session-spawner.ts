@@ -27,7 +27,7 @@ import { toArmedLoopInfo } from "./claude-loop-commands"
 import type { ChatPermissionPolicy } from "../shared/permission-policy"
 import type { StartClaudeSessionPtyArgs } from "./claude-pty/driver"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { ToolCallbackService } from "./tool-callback"
 import type { ClaudePtyRegistry } from "./claude-pty/pid-registry.adapter"
 import type { PtyInstanceRegistry } from "./claude-pty/pty-instance-registry"
@@ -73,7 +73,7 @@ export interface SpawnClaudeTurnDeps {
 
   subagentOrchestrator: SubagentOrchestrator
   toolCallback: ToolCallbackService | null
-  tunnelGateway: TunnelGateway | null
+  tunnelGateway: PortProxyGateway | null
   claudePtyRegistry: ClaudePtyRegistry | null
   ptyInstanceRegistry: PtyInstanceRegistry | null
   workflowRegistry: WorkflowRegistry | null

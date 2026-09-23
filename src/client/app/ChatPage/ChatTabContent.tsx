@@ -313,22 +313,10 @@ export function ChatTabContent({
   }, [state.activeChatId, state.socket])
 
 
-  const sendTunnelAccept = useCallback(async (tunnelId: string): Promise<void> => {
+  const sendProxyStop = useCallback(async (proxyId: string): Promise<void> => {
     const chatId = state.activeChatId
     if (!chatId) return
-    await state.socket.command({ type: "tunnel.accept", chatId, tunnelId })
-  }, [state.activeChatId, state.socket])
-
-  const sendTunnelStop = useCallback(async (tunnelId: string): Promise<void> => {
-    const chatId = state.activeChatId
-    if (!chatId) return
-    await state.socket.command({ type: "tunnel.stop", chatId, tunnelId })
-  }, [state.activeChatId, state.socket])
-
-  const sendTunnelRetry = useCallback(async (tunnelId: string): Promise<void> => {
-    const chatId = state.activeChatId
-    if (!chatId) return
-    await state.socket.command({ type: "tunnel.retry", chatId, tunnelId })
+    await state.socket.command({ type: "proxy.stop", chatId, proxyId })
   }, [state.activeChatId, state.socket])
 
 
@@ -372,11 +360,9 @@ export function ChatTabContent({
     onCancelSubagentRun: handleCancelSubagentRun,
     getSubagentTranscript: handleGetSubagentTranscript,
     platform: state.localProjects?.machine.platform ?? "darwin",
-    tunnels: state.chatSnapshot?.tunnels,
-    liveTunnelId: state.chatSnapshot?.liveTunnelId,
-    onTunnelAccept: sendTunnelAccept,
-    onTunnelStop: sendTunnelStop,
-    onTunnelRetry: sendTunnelRetry,
+    proxies: state.chatSnapshot?.proxies,
+    liveProxyId: state.chatSnapshot?.liveProxyId,
+    onProxyStop: sendProxyStop,
     queuedMessages: state.queuedMessages,
     runtimeStatus: state.runtimeStatus,
     isDraining: state.isDraining,
@@ -412,11 +398,9 @@ export function ChatTabContent({
     handleCancelSubagentRun,
     handleGetSubagentTranscript,
     state.localProjects?.machine.platform,
-    state.chatSnapshot?.tunnels,
-    state.chatSnapshot?.liveTunnelId,
-    sendTunnelAccept,
-    sendTunnelStop,
-    sendTunnelRetry,
+    state.chatSnapshot?.proxies,
+    state.chatSnapshot?.liveProxyId,
+    sendProxyStop,
     state.queuedMessages,
     state.runtimeStatus,
     state.isDraining,
