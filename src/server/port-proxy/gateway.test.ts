@@ -1,6 +1,21 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { EventStore } from "../event-store"
 import { PortProxyGateway } from "./gateway"
+
+const tempDirs: string[] = []
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
+})
+
+async function createTempDataDir() {
+  const dir = await mkdtemp(join(tmpdir(), "kanna-port-proxy-gateway-"))
+  tempDirs.push(dir)
+  return dir
+}
 
 function createGateway(store: EventStore, calls: string[]) {
   return new PortProxyGateway({
@@ -22,7 +37,7 @@ async function waitForStopEvent(store: EventStore, chatId: string, reason: "sess
 
 describe("PortProxyGateway", () => {
   test("starts a proxy and reuses an active one for the same port", async () => {
-    const store = new EventStore("/home/runner/work/kanna/kanna/.kanna-test-port-proxy-gateway-1")
+    const store = new EventStore(await createTempDataDir())
     await store.initialize()
     const project = await store.openProject("/home/runner/work/kanna/kanna")
     const chat = await store.createChat(project.id)
@@ -42,7 +57,7 @@ describe("PortProxyGateway", () => {
   })
 
   test("stops proxies for user and shutdown paths", async () => {
-    const store = new EventStore("/home/runner/work/kanna/kanna/.kanna-test-port-proxy-gateway-2")
+    const store = new EventStore(await createTempDataDir())
     await store.initialize()
     const project = await store.openProject("/home/runner/work/kanna/kanna")
     const chat = await store.createChat(project.id)

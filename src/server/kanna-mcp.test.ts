@@ -1119,8 +1119,8 @@ describe("arm_cron", () => {
 
 describe("expose_port registration", () => {
   const gateway = {
-    proposeFromTool: async (_args: { chatId: string; port: number }) =>
-      ({ status: "proposed" as const }),
+    expose: async (_args: { chatId: string; port: number }) =>
+      ({ status: "started" as const, proxyId: "p-1", port: _args.port, url: "http://test/port-proxy/1234" }),
   } as unknown as PortProxyGateway
 
   test("is hidden when portProxyGateway is null", () => {

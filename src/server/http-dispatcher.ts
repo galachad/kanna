@@ -66,9 +66,6 @@ export function createHttpDispatcher(
       return handleShareApiRequest(req, sessionShare)
     }
 
-    const portProxyResponse = await handlePortProxyRequest(req)
-    if (portProxyResponse) return portProxyResponse
-
     if (auth) {
       if (url.pathname === "/auth/login") {
         if (req.method === "GET") return auth.redirectToApp(req)
@@ -79,10 +76,13 @@ export function createHttpDispatcher(
       if (url.pathname === "/ws") {
         if (!auth.validateOrigin(req)) return new Response("Forbidden", { status: 403 })
         if (!auth.isAuthenticated(req)) return new Response("Unauthorized", { status: 401 })
-      } else if (url.pathname.startsWith("/api/") && !auth.isAuthenticated(req)) {
+      } else if (!auth.isAuthenticated(req)) {
         return Response.json({ error: "Unauthorized" }, { status: 401 })
       }
     }
+
+    const portProxyResponse = await handlePortProxyRequest(req)
+    if (portProxyResponse) return portProxyResponse
 
     if (url.pathname === "/ws") {
       const upgraded = server.upgrade(req, {
