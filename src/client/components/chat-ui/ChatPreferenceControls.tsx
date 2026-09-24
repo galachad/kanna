@@ -1,5 +1,5 @@
-import { useCallback, useMemo, type ComponentType, type SVGProps } from "react"
-import { Box, Brain, Gauge, ListTodo, Lock, LockOpen, Search, SquareMenu, SquareMinus } from "lucide-react"
+import { type ComponentType, type SVGProps } from "react"
+import { Box, Brain, Gauge, ListTodo, Lock, LockOpen, SquareMenu, SquareMinus } from "lucide-react"
 import {
   CLAUDE_CONTEXT_WINDOW_OPTIONS,
   CLAUDE_REASONING_OPTIONS,
@@ -18,7 +18,6 @@ import { cn } from "../../lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { HoverHint } from "../ui/truncated-text"
 import { InputPopoverStore } from "./InputPopover.store"
-import { SearchableModelPopoverStore } from "./SearchableModelPopover.store"
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>
 
@@ -156,114 +155,6 @@ function InputPopoverContent({
   )
 }
 
-function SearchableModelPopover({
-  models,
-  selectedModel,
-  onSelect,
-  ModelIcon,
-}: {
-  models: readonly { id: string; label: string }[]
-  selectedModel: string
-  onSelect: (id: string) => void
-  ModelIcon: IconComponent
-}) {
-  return (
-    <SearchableModelPopoverStore.Provider init={undefined}>
-      <SearchableModelPopoverContent
-        models={models}
-        selectedModel={selectedModel}
-        onSelect={onSelect}
-        ModelIcon={ModelIcon}
-      />
-    </SearchableModelPopoverStore.Provider>
-  )
-}
-
-function SearchableModelPopoverContent({
-  models,
-  selectedModel,
-  onSelect,
-  ModelIcon,
-}: {
-  models: readonly { id: string; label: string }[]
-  selectedModel: string
-  onSelect: (id: string) => void
-  ModelIcon: IconComponent
-}) {
-  const open = SearchableModelPopoverStore.useScopedStore((state) => state.open)
-  const query = SearchableModelPopoverStore.useScopedStore((state) => state.query)
-  const setPopoverOpen = SearchableModelPopoverStore.useScopedStore((state) => state.setPopoverOpen)
-  const setQuery = SearchableModelPopoverStore.useScopedStore((state) => state.setQuery)
-  const closeAndClearQuery = SearchableModelPopoverStore.useScopedStore((state) => state.closeAndClearQuery)
-
-  const handleSelectModel = useCallback((id: string) => {
-    onSelect(id)
-    closeAndClearQuery()
-  }, [onSelect, closeAndClearQuery])
-
-  const selectedLabel = models.find((m) => m.id === selectedModel)?.label ?? selectedModel
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return models
-    return models.filter((m) => m.id.toLowerCase().includes(q) || m.label.toLowerCase().includes(q))
-  }, [models, query])
-
-  let modelsContent: React.ReactNode
-  if (models.length === 0) {
-    modelsContent = (
-      <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-        Loading models…
-      </div>
-    )
-  } else if (filtered.length === 0) {
-    modelsContent = <div className="px-2 py-3 text-xs text-muted-foreground text-center">No matches</div>
-  } else {
-    modelsContent = filtered.map((candidate) => (
-      <PopoverMenuItem
-        key={candidate.id}
-        onClick={() => handleSelectModel(candidate.id)}
-        selected={selectedModel === candidate.id}
-        icon={<Box className="h-4 w-4 text-muted-foreground" />}
-        label={candidate.label}
-        description={candidate.id}
-      />
-    ))
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex min-h-[36px] cursor-pointer touch-manipulation items-center gap-1.5 px-2 py-1 text-sm rounded-md transition-colors text-muted-foreground [&>svg]:shrink-0 [&>span]:whitespace-nowrap",
-            "hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
-        >
-          <ModelIcon className="h-3.5 w-3.5" />
-          <span className="max-w-[200px] truncate">{selectedLabel}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="center" className="w-80 p-1">
-        <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/50">
-          <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search models..."
-            autoFocus
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto py-1 space-y-1">
-          {modelsContent}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 export type ModelOptionChange =
   | { type: "claudeReasoningEffort"; effort: ClaudeReasoningEffort }
   | { type: "contextWindow"; contextWindow: ClaudeContextWindow }
@@ -312,14 +203,7 @@ export function ChatPreferenceControls({
   const selectedContextWindow = claudeModelOptions?.contextWindow ?? CLAUDE_CONTEXT_WINDOW_OPTIONS[0].id
   const ContextWindowIcon = selectedContextWindow === "1m" ? SquareMenu : SquareMinus
   const modelLabel = providerConfig.models.find((candidate) => candidate.id === model)?.label ?? model
-  const unlockedModelPicker = false ? (
-    <SearchableModelPopover
-      models={providerConfig.models}
-      selectedModel={model}
-      onSelect={(id) => onModelChange?.(selectedProvider, id)}
-      ModelIcon={ModelIcon}
-    />
-  ) : (
+  const unlockedModelPicker = (
     <InputPopover
       trigger={(
         <>
@@ -399,7 +283,6 @@ export function ChatPreferenceControls({
         </HoverHint>
       ) : unlockedModelPicker}
 
-      {true ? (
       <InputPopover
         trigger={(
           <>
@@ -440,7 +323,6 @@ export function ChatPreferenceControls({
             ))
         )}
       </InputPopover>
-      ) : null}
 
       {selectedProvider === "claude" && contextWindowOptions.length > 1 ? (
         <InputPopover

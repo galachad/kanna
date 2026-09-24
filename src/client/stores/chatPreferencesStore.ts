@@ -239,7 +239,6 @@ function providerDefaultsEqual(a: ChatProviderPreferences, b: ChatProviderPrefer
     && a.codex.model === b.codex.model
     && a.codex.planMode === b.codex.planMode
     && codexModelOptionsEqual(a.codex.modelOptions, b.codex.modelOptions)
-    && a.codex.planMode === b.codex.planMode
   )
 }
 
