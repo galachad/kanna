@@ -146,18 +146,9 @@ export function withAdditionalDirectoryMemory(
 export function buildClaudeEnv(
   baseEnv: NodeJS.ProcessEnv,
   oauthToken: string | null,
-  openrouter?: { apiKey: string } | null,
   anthropicBaseUrl?: string | null,
 ): NodeJS.ProcessEnv {
   const { CLAUDECODE: _unused, CLAUDE_CODE_OAUTH_TOKEN: _oauth, ...rest } = baseEnv
-  if (openrouter) {
-    return {
-      ...rest,
-      ANTHROPIC_BASE_URL: "https://openrouter.ai/api",
-      ANTHROPIC_AUTH_TOKEN: openrouter.apiKey,
-      ANTHROPIC_API_KEY: "",
-    }
-  }
   const scoped = anthropicBaseUrl
     ? { ...rest, ANTHROPIC_BASE_URL: anthropicBaseUrl }
     : rest

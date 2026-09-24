@@ -1,18 +1,6 @@
 
 import type { AgentProvider } from "./types"
 
-export const DEFAULT_OPENROUTER_SDK_MODEL = "moonshotai/kimi-k2.5:nitro"
-
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api"
-export const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
-
-export interface OpenRouterModel {
-  id: string
-  label: string
-  contextLength: number
-  pricing?: { promptPerTok: number; completionPerTok: number }
-}
-
 
 export interface ProviderModelOption {
   id: string
@@ -63,12 +51,9 @@ export interface CodexModelOptions {
   fastMode: boolean
 }
 
-export type OpenRouterModelOptions = Record<string, never>
-
 export interface ProviderModelOptionsByProvider {
   claude: ClaudeModelOptions
   codex: CodexModelOptions
-  openrouter: OpenRouterModelOptions
 }
 
 export interface ProviderPreference<TModelOptions> {
@@ -80,7 +65,6 @@ export interface ProviderPreference<TModelOptions> {
 export type ChatProviderPreferences = {
   claude: ProviderPreference<ClaudeModelOptions>
   codex: ProviderPreference<CodexModelOptions>
-  openrouter: ProviderPreference<OpenRouterModelOptions>
 }
 
 
@@ -200,14 +184,6 @@ export const PROVIDERS: ProviderCatalogEntry[] = [
     ],
     efforts: [],
   },
-  {
-    id: "openrouter",
-    label: "OpenRouter",
-    defaultModel: DEFAULT_OPENROUTER_SDK_MODEL,
-    supportsPlanMode: true,
-    models: [],
-    efforts: [],
-  },
 ]
 
 export function getProviderCatalog(provider: AgentProvider): ProviderCatalogEntry {
@@ -298,11 +274,11 @@ export function mergeCustomModels(
 
 
 export function providerUsesSdkSession(provider: AgentProvider): boolean {
-  return provider === "claude" || provider === "openrouter"
+  return provider === "claude"
 }
 
 export function providerExpandsSlashCommands(provider: AgentProvider): boolean {
-  return provider === "claude" || provider === "openrouter"
+  return provider === "claude"
 }
 
 function effectiveCatalogFor(

@@ -11,7 +11,6 @@ import {
   type ClaudeReasoningEffort,
   type CodexModelOptions,
   type CodexReasoningEffort,
-  type OpenRouterModelOptions,
   type ProviderCatalogEntry,
 } from "../../../shared/types"
 import { useAppSettingsStore, selectCustomModels } from "../../stores/appSettingsStore"
@@ -51,32 +50,9 @@ function OpenAIIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   )
 }
 
-function OpenRouterIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={cn("shrink-0", className)}
-      {...props}
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M6.3 6.3a8 8 0 1 0 11.4 11.4" />
-      <path d="M17.7 6.3a8 8 0 0 1 0 11.4" />
-      <path d="M2 12h4" />
-      <path d="M18 12h4" />
-    </svg>
-  )
-}
-
 export const PROVIDER_ICONS: Record<AgentProvider, IconComponent> = {
   claude: AnthropicIcon,
   codex: OpenAIIcon,
-  openrouter: OpenRouterIcon,
 }
 
 export function PopoverMenuItem({
@@ -236,7 +212,7 @@ function SearchableModelPopoverContent({
   if (models.length === 0) {
     modelsContent = (
       <div className="px-2 py-3 text-xs text-muted-foreground text-center">
-        Loading models… verify OpenRouter API key in Settings.
+        Loading models…
       </div>
     )
   } else if (filtered.length === 0) {
@@ -300,7 +276,7 @@ interface ChatPreferenceControlsProps {
   showProviderPicker?: boolean
   showCodexCliRequirementHints?: boolean
   model: string
-  modelOptions: ClaudeModelOptions | CodexModelOptions | OpenRouterModelOptions
+  modelOptions: ClaudeModelOptions | CodexModelOptions
   onProviderChange?: (provider: AgentProvider) => void
   onModelChange?: (provider: AgentProvider, model: string) => void
   onModelOptionChange: (change: ModelOptionChange) => void
@@ -336,7 +312,7 @@ export function ChatPreferenceControls({
   const selectedContextWindow = claudeModelOptions?.contextWindow ?? CLAUDE_CONTEXT_WINDOW_OPTIONS[0].id
   const ContextWindowIcon = selectedContextWindow === "1m" ? SquareMenu : SquareMinus
   const modelLabel = providerConfig.models.find((candidate) => candidate.id === model)?.label ?? model
-  const unlockedModelPicker = selectedProvider === "openrouter" ? (
+  const unlockedModelPicker = false ? (
     <SearchableModelPopover
       models={providerConfig.models}
       selectedModel={model}
@@ -423,7 +399,7 @@ export function ChatPreferenceControls({
         </HoverHint>
       ) : unlockedModelPicker}
 
-      {selectedProvider !== "openrouter" ? (
+      {true ? (
       <InputPopover
         trigger={(
           <>

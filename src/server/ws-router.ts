@@ -5,8 +5,6 @@ import { PROTOCOL_VERSION } from "../shared/types"
 import type { ClientCommand, ClientEnvelope, ServerEnvelope } from "../shared/protocol"
 import { isClientEnvelope } from "../shared/protocol"
 import type { AgentCoordinator } from "./agent"
-import type { AnalyticsReporter } from "./analytics"
-import { NoopAnalyticsReporter } from "./analytics"
 import type { AppSettingsManager } from "./app-settings"
 import type { DiscoveredProject } from "./discovery.adapter"
 import { DiffStore } from "./diff-store"
@@ -17,11 +15,9 @@ import { resolveLocalPath } from "./paths"
 import { resolveSpawnPaths } from "./claude-session-config"
 import { ensureProjectDirectory } from "./project-directory.adapter"
 import { TerminalManager } from "./terminal-manager"
-import type { UpdateManager } from "./update-manager"
 import type {
   LlmProviderSnapshot,
   LlmProviderValidationResult,
-  OpenRouterModel,
 } from "../shared/types"
 import { importClaudeSessions, importSessionsByIds } from "./claude-session-importer.adapter"
 import { listWorktrees } from "./worktree-store.adapter"
@@ -90,18 +86,15 @@ interface CreateWsRouterArgs {
   keybindings: KeybindingsManager
   appSettings?: Pick<AppSettingsManager, "getSnapshot" | "write">
     & Partial<Pick<AppSettingsManager, "setClaudeAuth" | "writePatch" | "onChange" | "createSubagent" | "updateSubagent" | "deleteSubagent">>
-  analytics?: AnalyticsReporter
   portProxyGateway?: PortProxyGateway
   llmProvider?: {
     read: () => Promise<LlmProviderSnapshot>
     write: (value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">) => Promise<LlmProviderSnapshot>
     validate: (value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">) => Promise<LlmProviderValidationResult>
   }
-  listOpenRouterModels?: () => Promise<OpenRouterModel[]>
   refreshDiscovery: () => Promise<DiscoveredProject[]>
   getDiscoveredProjects: () => DiscoveredProject[]
   machineDisplayName: string
-  updateManager: UpdateManager | null
   pushManager: PushManager
   ptyInstances?: PtyInstanceRegistry
   killPtyInstance?: (chatId: string) => Promise<{ ok: boolean; error?: string }>
@@ -127,14 +120,11 @@ export function createWsRouter({
   terminals,
   keybindings,
   appSettings,
-  analytics,
   portProxyGateway,
   llmProvider,
-  listOpenRouterModels,
   refreshDiscovery,
   getDiscoveredProjects,
   machineDisplayName,
-  updateManager,
   pushManager,
   ptyInstances,
   killPtyInstance,
@@ -155,7 +145,6 @@ export function createWsRouter({
   const resolvedDiffStore = diffStore ?? buildFallbackDiffStore()
   const resolvedLlmProvider = llmProvider ?? buildFallbackLlmProvider()
   const resolvedAppSettings = buildResolvedAppSettings(appSettings)
-  const resolvedAnalytics = analytics ?? NoopAnalyticsReporter
 
   const envelopeBuilder = createEnvelopeBuilder({
     store,
@@ -169,8 +158,7 @@ export function createWsRouter({
     backgroundTaskOutputRegistry,
     followedSessionRegistry,
     machineDisplayName,
-    updateManager,
-    packageUpdateManager,
+      packageUpdateManager,
     getDiscoveredProjects,
     terminals,
     pushManager,
@@ -182,8 +170,7 @@ export function createWsRouter({
     terminals,
     keybindings,
     resolvedAppSettings,
-    updateManager,
-    packageUpdateManager,
+      packageUpdateManager,
     ptyInstances,
     workflowRegistry,
     boardRegistry,
@@ -208,7 +195,6 @@ export function createWsRouter({
     return {
       store,
       agent,
-      analytics: resolvedAnalytics,
       setDraftProtection: (chatIds) => { ws.data.protectedDraftChatIds = new Set(chatIds) },
       logSendProfilingFn: logSendToStartingProfile,
       send: (envelope) => send(ws, envelope),
@@ -235,7 +221,6 @@ export function createWsRouter({
       terminals,
       agent,
       sessionShare,
-      analytics: resolvedAnalytics,
       listWorktrees,
       getOriginHost: () => ws.data.originHost ?? "",
       send: (envelope) => send(ws, envelope),
@@ -292,10 +277,8 @@ export function createWsRouter({
         {
           keybindings,
           resolvedAppSettings,
-          resolvedAnalytics,
-          resolvedLlmProvider,
-          listOpenRouterModels,
-          packageUpdateManager,
+              resolvedLlmProvider,
+                  packageUpdateManager,
           send: sendToClient,
         },
         command,
@@ -318,10 +301,8 @@ export function createWsRouter({
       () => handleProjectCommand(
         {
           store,
-          updateManager,
-          diffStore: resolvedDiffStore,
-          analytics: resolvedAnalytics,
-          refreshDiscovery,
+                  diffStore: resolvedDiffStore,
+              refreshDiscovery,
           ensureProjectDirectory,
           resolveLocalPath,
           importClaudeSessionsFn: () => importClaudeSessions({ store }),

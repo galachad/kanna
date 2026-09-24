@@ -16,14 +16,9 @@ export function providerDefaultSelection(
     if (!preference?.model) return {}
     return { model: preference.model, modelOptions: { claude: preference.modelOptions } }
   }
-  if (provider === "codex") {
-    const preference = preferences.codex
-    if (!preference?.model) return {}
-    return { model: preference.model, modelOptions: { codex: preference.modelOptions } }
-  }
-  const preference = preferences.openrouter
+  const preference = preferences.codex
   if (!preference?.model) return {}
-  return { model: preference.model, modelOptions: { openrouter: preference.modelOptions } }
+  return { model: preference.model, modelOptions: { codex: preference.modelOptions } }
 }
 
 export function resolveTurnModelSelection(

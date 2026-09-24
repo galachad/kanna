@@ -41,9 +41,6 @@ export function decodeLegacyProviderDefaults(value: JsonValue): AppSettingsPatch
     decoded.codex = codex
   }
 
-  if (isJsonObject(value.openrouter)) {
-    decoded.openrouter = legacyPreferenceBase(value.openrouter)
-  }
 
   return Object.keys(decoded).length > 0 ? decoded : undefined
 }

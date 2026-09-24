@@ -10,7 +10,6 @@ import type { EventStore } from "./event-store"
 import type { AgentCoordinator } from "./agent"
 import type { TerminalManager } from "./terminal-manager"
 import type { KeybindingsManager } from "./keybindings"
-import type { UpdateManager } from "./update-manager"
 import type { PackageUpdateManager } from "./package-update-manager"
 import type { ServerEnvelope } from "../shared/protocol"
 import type { ResolvedAppSettings } from "./ws-router-defaults"
@@ -36,7 +35,6 @@ export interface BroadcastManagerDeps {
   terminals: TerminalManager
   keybindings: KeybindingsManager
   resolvedAppSettings: ResolvedAppSettings
-  updateManager: UpdateManager | null
   packageUpdateManager?: PackageUpdateManager
   ptyInstances?: PtyInstanceRegistry
   workflowRegistry?: WorkflowRegistry
@@ -56,7 +54,6 @@ export class BroadcastManager {
   private readonly disposeTerminalEvents: () => void
   private readonly disposeKeybindingEvents: () => void
   private readonly disposeAppSettingsEvents: () => void
-  private readonly disposeUpdateEvents: () => void
   private readonly disposePtyInstances: () => void
   private readonly disposeWorkflows: () => void
   private readonly disposeBoards: () => void
@@ -69,7 +66,6 @@ export class BroadcastManager {
       terminals,
       keybindings,
       resolvedAppSettings,
-      updateManager,
       packageUpdateManager,
       ptyInstances,
       workflowRegistry,
@@ -112,21 +108,6 @@ export class BroadcastManager {
         }
       }
     })
-
-    this.disposeUpdateEvents = updateManager?.onChange(() => {
-      for (const ws of this.sockets) {
-        const snapshotSignatures = ensureSnapshotSignatures(ws)
-        for (const [id, topic] of ws.data.subscriptions.entries()) {
-          if (topic.type !== "update") continue
-          const envelope = deps.envelopeBuilder.createEnvelope(id, topic, undefined, ws)
-          if (envelope.type !== "snapshot") continue
-          const signature = JSON.stringify(envelope.snapshot)
-          if (snapshotSignatures.get(id) === signature) continue
-          snapshotSignatures.set(id, signature)
-          send(ws, envelope)
-        }
-      }
-    }) ?? (() => {})
 
     this.disposePtyInstances = ptyInstances?.subscribe((delta: PtyInstanceDelta) => {
       if (delta.type === "added") {
@@ -583,7 +564,6 @@ export class BroadcastManager {
     this.disposeTerminalEvents()
     this.disposeKeybindingEvents()
     this.disposeAppSettingsEvents()
-    this.disposeUpdateEvents()
     this.disposePtyInstances()
     this.disposeWorkflows()
     this.disposeBoards()

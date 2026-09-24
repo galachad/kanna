@@ -77,11 +77,6 @@ interface AutoResumeByChatMap {
   set(chatId: string, value: boolean): void
 }
 
-interface SendCommandAnalytics {
-  track(event: string): void
-}
-
-
 export interface SendCommandDeps {
   store: SendCommandStore
 
@@ -96,8 +91,6 @@ export interface SendCommandDeps {
   resolveBackgroundTaskMaxMs(): number
 
   autoResumeByChat: AutoResumeByChatMap
-
-  analytics: SendCommandAnalytics
 
   getAppSettingsSnapshot(): {
     customModels?: readonly CustomModelEntry[]
@@ -150,14 +143,6 @@ export function getProviderSettings(
     }
   }
 
-  if (provider === "openrouter") {
-    return {
-      model: options.model?.trim() || catalog.defaultModel,
-      effort: undefined,
-      serviceTier: undefined,
-      planMode: catalog.supportsPlanMode ? Boolean(options.planMode) : false,
-    }
-  }
 
   const modelOptions = normalizeCodexModelOptions(options.modelOptions, options.effort)
   return {
@@ -388,7 +373,6 @@ export async function sendCommand(
     }
     const created = await deps.store.createChat(command.projectId)
     chatId = created.id
-    deps.analytics.track("chat_created")
     logSendToStartingProfile(profile, "chat_send.chat_created", {
       chatId,
       projectId: command.projectId,
@@ -404,7 +388,6 @@ export async function sendCommand(
   }
 
   if (isChatBusy(deps, chatId)) {
-    deps.analytics.track("message_sent")
     const queuedMessage = await enqueueMessage(deps, chatId, command.content, command.attachments ?? [], {
       provider: command.provider,
       model: command.model,
@@ -418,7 +401,6 @@ export async function sendCommand(
   const chat = deps.store.requireChat(chatId)
   const provider = resolveProvider(command, chat.provider)
   const settings = resolveTurnProviderSettings(deps, chatId, provider, command)
-  deps.analytics.track("message_sent")
 
   const builtin = parseBuiltinCommand(command.content)
   if (builtin) {

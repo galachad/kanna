@@ -15,8 +15,6 @@ import {
 } from "./settings/auth"
 import type { PushSettings } from "./settings/push"
 import { PUSH_DEFAULTS } from "./settings/push"
-import type { TelemetrySettings } from "./settings/telemetry"
-import { TELEMETRY_DEFAULTS } from "./settings/telemetry"
 import type { TypographySettings } from "./settings/typography"
 import { TYPOGRAPHY_DEFAULTS } from "./settings/typography"
 import type { UploadSettings } from "./settings/uploads"
@@ -32,7 +30,6 @@ export type {
   InstalledPluginConfig,
   PluginSettings,
   PushSettings,
-  TelemetrySettings,
   TypographySettings,
   UploadSettings,
 }
@@ -42,7 +39,6 @@ export {
   AUTH_SESSION_MAX_AGE_DAYS_MIN,
   PLUGIN_SETTINGS_DEFAULTS,
   PUSH_DEFAULTS,
-  TELEMETRY_DEFAULTS,
   TYPOGRAPHY_DEFAULTS,
   UPLOAD_DEFAULTS,
   UPLOAD_MAX_FILE_SIZE_MB_MAX,
@@ -53,7 +49,6 @@ import type {
   ProviderPreference,
   ClaudeModelOptions,
   CodexModelOptions,
-  OpenRouterModelOptions,
   CustomModelEntry,
   CustomModelInput,
   CustomModelPatch,
@@ -263,7 +258,6 @@ export interface KeybindingsSnapshot {
 
 
 export interface AppSettingsSnapshot {
-  analyticsEnabled: boolean
   browserSettingsMigrated: boolean
   theme: AppThemePreference
   typography: TypographySettings
@@ -285,7 +279,6 @@ export interface AppSettingsSnapshot {
   warning: string | null
   filePathDisplay: string
   push: PushSettings
-  telemetry: TelemetrySettings
   auth: AuthSettings
   claudeAuth: ClaudeAuthSettings
   uploads: UploadSettings
@@ -328,7 +321,6 @@ export const PACKAGE_UPDATE_SETTINGS_DEFAULTS: PackageUpdateSettings = {
 }
 
 export interface AppSettingsPatch {
-  analyticsEnabled?: boolean
   browserSettingsMigrated?: boolean
   theme?: AppThemePreference
   typography?: Partial<TypographySettings>
@@ -341,10 +333,8 @@ export interface AppSettingsPatch {
   providerDefaults?: {
     claude?: Partial<ProviderPreference<ClaudeModelOptions>>
     codex?: Partial<ProviderPreference<CodexModelOptions>>
-    openrouter?: Partial<ProviderPreference<OpenRouterModelOptions>>
   }
   push?: Partial<PushSettings>
-  telemetry?: Partial<TelemetrySettings>
   auth?: Partial<AuthSettings>
   claudeAuth?: Partial<ClaudeAuthSettings>
   uploads?: Partial<UploadSettings>
@@ -404,7 +394,7 @@ export function isChatSoundId(value: string): value is ChatSoundId {
 }
 
 export function isLlmProviderKind(value: string): value is LlmProviderKind {
-  return value === "openai" || value === "openrouter" || value === "custom"
+  return value === "openai" || value === "custom"
 }
 
 export function isAppThemePreference(value: string): value is AppThemePreference {

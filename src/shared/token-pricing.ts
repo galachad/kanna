@@ -6,10 +6,6 @@ export interface ModelPrice {
   cachedInputPerMTok?: number
 }
 
-export interface OpenRouterPricing {
-  promptPerTok: number
-  completionPerTok: number
-}
 
 const MILLION = 1_000_000
 
@@ -68,17 +64,7 @@ export function stripModelVariantSuffix(modelId: string): string {
   return i === -1 ? modelId : modelId.slice(0, i)
 }
 
-export function resolveModelPrice(
-  modelId: string,
-  openRouterPricing?: OpenRouterPricing | null,
-): ModelPrice | null {
-  if (openRouterPricing) {
-    const inputPerMTok = openRouterPricing.promptPerTok * MILLION
-    const outputPerMTok = openRouterPricing.completionPerTok * MILLION
-    if (Number.isFinite(inputPerMTok) && Number.isFinite(outputPerMTok)) {
-      return { inputPerMTok, outputPerMTok }
-    }
-  }
+export function resolveModelPrice(modelId: string): ModelPrice | null {
   const id = modelId.toLowerCase()
   for (const [needle, price] of STATIC_PRICES) {
     if (matchesNeedle(id, needle)) return price

@@ -27,7 +27,6 @@ import {
 } from "lucide-react"
 import { useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { getKeybindingsFilePathDisplay, SDK_CLIENT_APP } from "../../shared/branding"
-import { ANALYTICS_STATIC_EVENT_NAMES, ANALYTICS_STATIC_PROPERTY_NAMES } from "../../shared/analytics"
 import {
   CLAUDE_DRIVER_DEFAULTS,
   CLAUDE_PTY_IDLE_TIMEOUT_MS_MAX,
@@ -49,7 +48,6 @@ import {
   isLlmProviderKind,
   type AgentProvider,
   type LlmProviderKind,
-  type UpdateSnapshot,
 } from "../../shared/types"
 import { renderMarkdownToReact } from "../components/lexical/markdown/lexicalToReact"
 import { SubagentsSettingsBranch } from "./SubagentsSection"
@@ -225,14 +223,8 @@ const chatSoundPreferenceOptions: { value: ChatSoundPreference; label: string }[
   { value: "always", label: "Always" },
 ]
 
-const analyticsOptions = [
-  { value: "disabled" as const, label: "Off" },
-  { value: "enabled" as const, label: "On" },
-]
-
 const QUICK_RESPONSE_PROVIDER_OPTIONS: Array<{ value: LlmProviderKind; label: string }> = [
   { value: "openai", label: "OpenAI" },
-  { value: "openrouter", label: "OpenRouter" },
   { value: "custom", label: "Custom" },
 ]
 
@@ -801,8 +793,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
   const setEditorCommandDraft = useSettingsPageStore((s) => s.setEditorCommandDraft)
   const appSettingsError = useSettingsPageStore((s) => s.appSettingsError)
   const setAppSettingsError = useSettingsPageStore((s) => s.setAppSettingsError)
-  const analyticsDialogOpen = useSettingsPageStore((s) => s.analyticsDialogOpen)
-  const setAnalyticsDialogOpen = useSettingsPageStore((s) => s.setAnalyticsDialogOpen)
   const pushContactSubjectDraft = useSettingsPageStore((s) => s.pushContactSubjectDraft)
   const setPushContactSubjectDraft = useSettingsPageStore((s) => s.setPushContactSubjectDraft)
   const shareDefaultTtlHours = appSettings?.shareDefaultTtlHours ?? 24
@@ -1132,24 +1122,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
     void playChatNotificationSound(nextValue, 1).catch(() => undefined)
   }
 
-  async function handleAnalyticsPreferenceChange(nextValue: "enabled" | "disabled") {
-    try {
-      setAppSettingsError(null)
-      await handleWriteAppSettings({ analyticsEnabled: nextValue === "enabled" })
-    } catch (error) {
-      setAppSettingsError(error instanceof Error ? error.message : "Unable to save analytics settings.")
-    }
-  }
-
-  async function handleTelemetryPreferenceChange(nextValue: "enabled" | "disabled") {
-    try {
-      setAppSettingsError(null)
-      await handleWriteAppSettings({ telemetry: { enabled: nextValue === "enabled" } })
-    } catch (error) {
-      setAppSettingsError(error instanceof Error ? error.message : "Unable to save telemetry settings.")
-    }
-  }
-
   function handleDefaultProviderChange(nextValue: "last_used" | AgentProvider) {
     setDefaultProvider(nextValue)
     void handleWriteAppSettings({ defaultProvider: nextValue }).catch((error) => {
@@ -1224,9 +1196,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
     .replaceAll("{path}", "/Users/jake/Projects/kanna/src/client/app/App.tsx")
     .replaceAll("{line}", "12")
     .replaceAll("{column}", "1")
-  const analyticsDisclosureEvents = ANALYTICS_STATIC_EVENT_NAMES
-  const analyticsSettingValue = appSettings?.analyticsEnabled === false ? "disabled" : "enabled"
-  const telemetrySettingValue = appSettings?.telemetry?.enabled === false ? "disabled" : "enabled"
   const selectedSection = sidebarItems.find((item) => item.id === selectedPage) ?? sidebarItems[0]
   const visibleSidebarItems = useMemo(() => visibleSettingsSidebarItems(kannaPluginsEnabled), [kannaPluginsEnabled])
   const selectedSectionSubtitle =
@@ -1754,61 +1723,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
                         </SettingsRow>
                       ) : null}
 
-                      <SettingsRow
-                        title="Anonymous Analytics"
-                        description={(
-                          <>
-                            <span>
-                              Help improve Kanna with anonymous product analytics. Kanna sends tracked event names plus a small set of event properties like current version, environment, update version info, and launch flags. No message content, prompts, file paths, or provider credentials are sent.
-                            </span>
-                            <span className="mt-1 block">
-                              Stored in {appSettings?.filePathDisplay ?? "~/.kanna/data/settings.json"}.
-                              {" "}
-                              <button
-                                type="button"
-                                onClick={() => setAnalyticsDialogOpen(true)}
-                                className="underline underline-offset-2 text-foreground hover:text-foreground/80"
-                              >
-                                View tracked events
-                              </button>
-                            </span>
-                            {appSettings?.warning ? (
-                              <span className="mt-1 block">{appSettings.warning}</span>
-                            ) : null}
-                          </>
-                        )}
-                      >
-                        <SegmentedControl
-                          value={analyticsSettingValue}
-                          onValueChange={(value) => {
-                            void handleAnalyticsPreferenceChange(value)
-                          }}
-                          options={analyticsOptions}
-                          size="sm"
-                        />
-                      </SettingsRow>
-                      <SettingsRow
-                        title="Telemetry Tracing"
-                        description={(
-                          <>
-                            <span>
-                              Export OpenTelemetry traces and metrics (turn timings, subagent runs, process memory) to Kanna&apos;s observability collector so each install can be monitored. This machine reports under its computer name. Turning it off stops the export immediately.
-                            </span>
-                            <span className="mt-1 block">
-                              Collector: {appSettings?.telemetry?.endpoint ?? "not configured"}. Stored in {appSettings?.filePathDisplay ?? "~/.kanna/data/settings.json"}.
-                            </span>
-                          </>
-                        )}
-                      >
-                        <SegmentedControl
-                          value={telemetrySettingValue}
-                          onValueChange={(value) => {
-                            void handleTelemetryPreferenceChange(value)
-                          }}
-                          options={analyticsOptions}
-                          size="sm"
-                        />
-                      </SettingsRow>
                     </div>
                     <div className="border-b border-border">
                       <SettingsRow
@@ -2121,43 +2035,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
           </div>
         </div>
       ) : null}
-      <Dialog open={analyticsDialogOpen} onOpenChange={setAnalyticsDialogOpen}>
-        <DialogContent size="lg">
-          <DialogBody className="space-y-4">
-            <DialogTitle>Tracked Events</DialogTitle>
-            <div className="text-sm text-muted-foreground">
-              Kanna sends these event names plus the limited property keys below, depending on the event type.
-            </div>
-            <div className="max-h-[60vh] overflow-auto rounded-lg border border-border bg-muted/40 p-3">
-              <div className="text-xs font-medium tracking-wide text-muted-foreground">
-                Event Names
-              </div>
-              <ul className="mt-3 space-y-2 text-sm">
-                {analyticsDisclosureEvents.map((eventName) => (
-                  <li key={eventName} className="font-mono text-foreground">
-                    {eventName}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6 text-xs font-medium tracking-wide text-muted-foreground">
-                Property Keys
-              </div>
-              <ul className="mt-3 space-y-2 text-sm">
-                {ANALYTICS_STATIC_PROPERTY_NAMES.map((propertyName) => (
-                  <li key={propertyName} className="font-mono text-foreground">
-                    {propertyName}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="secondary" size="sm" onClick={() => setAnalyticsDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Dialog open={llmValidationDialogOpen} onOpenChange={setLlmValidationDialogOpen}>
         <DialogContent size="lg">
           <DialogBody className="space-y-4">

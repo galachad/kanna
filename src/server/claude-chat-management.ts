@@ -1,4 +1,3 @@
-import type { JsonObject } from "../shared/json"
 
 import type { AgentProvider, QueuedChatMessage } from "../shared/types"
 import type { ClientCommand } from "../shared/protocol"
@@ -40,18 +39,12 @@ interface ChatManagementStore {
   renameChat(chatId: string, title: string): Promise<void>
 }
 
-interface AnalyticsSubset {
-  track(eventName: string, properties?: JsonObject): void
-}
-
-
 export interface ChatManagementDeps {
   activeTurns: ActiveTurnsMap
   drainingStreams: DrainingStreamsMap
   claudeSessions: ClaudeSessionsMap
   autoResumeByChat: AutoResumeMap
   store: ChatManagementStore
-  analytics: AnalyticsSubset
   cancel(chatId: string, options?: { hideInterrupted?: boolean }): Promise<void>
   closeClaudeSession(chatId: string, session: ClaudeSessionState, opts?: { keepReservation?: boolean }): void
   emitStateChange(chatId: string): void
@@ -152,7 +145,6 @@ export async function forkChat(deps: ChatManagementDeps, chatId: string): Promis
   }
 
   const forked = await deps.store.forkChat(chatId)
-  deps.analytics.track("chat_created")
   return { chatId: forked.id }
 }
 

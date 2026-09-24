@@ -66,8 +66,6 @@ export interface ClaudeSessionStateInit {
   activeTokenId: string | null
   oauthKeyMasked: string | null
   oauthLabel: string | null
-  openrouterKeyMasked: string | null
-  openrouterModel: string | null
   lastUsedAt: number
   backgroundTasks: Map<string, SessionBackgroundTask>
   backgroundTaskDeadlineAt: number
@@ -101,8 +99,6 @@ export class ClaudeSessionState {
   activeTokenId: string | null
   oauthKeyMasked: string | null
   oauthLabel: string | null
-  openrouterKeyMasked: string | null
-  openrouterModel: string | null
   lastUsedAt: number
   backgroundTasks: Map<string, SessionBackgroundTask>
   backgroundTaskDeadlineAt: number
@@ -134,8 +130,6 @@ export class ClaudeSessionState {
     this.activeTokenId = init.activeTokenId
     this.oauthKeyMasked = init.oauthKeyMasked
     this.oauthLabel = init.oauthLabel
-    this.openrouterKeyMasked = init.openrouterKeyMasked
-    this.openrouterModel = init.openrouterModel
     this.lastUsedAt = init.lastUsedAt
     this.backgroundTasks = init.backgroundTasks
     this.backgroundTaskDeadlineAt = init.backgroundTaskDeadlineAt

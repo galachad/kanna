@@ -12,7 +12,6 @@ const TOKEN_SOURCE_LABEL: Record<string, string> = {
   "kanna-oauth-pool": "Pool token",
   "claude-pro": "Claude Pro",
   "claude-max": "Claude Max",
-  openrouter: "OpenRouter",
 }
 
 function describeSource(tokenSource?: string, apiKeySource?: string): string | null {

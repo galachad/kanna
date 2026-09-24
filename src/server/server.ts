@@ -2,7 +2,6 @@ import path from "node:path"
 import type { Server } from "bun"
 import { isErrnoException } from "../shared/errors"
 import { serveHttp } from "./server-io.adapter"
-import { getRuntimeProfile } from "../shared/branding"
 import {
   UPLOAD_MAX_FILE_SIZE_MB_MAX,
   type AppSettingsSnapshot,
@@ -16,14 +15,11 @@ import { resolveVapidSubject } from "../shared/vapid-subject"
 import { AgentCoordinator } from "./agent"
 import { POLICY_DEFAULT } from "../shared/permission-policy"
 import type { LimitDetector } from "./auto-continue/limit-detector"
-import { KannaAnalyticsReporter } from "./analytics"
 import { AppSettingsManager } from "./app-settings"
 import { DiffStore } from "./diff-store"
 import { discoverProjects, type DiscoveredProject } from "./discovery.adapter"
 import { KeybindingsManager } from "./keybindings"
 import { readLlmProviderSnapshot, validateLlmProviderCredentials, writeLlmProviderSnapshot } from "./llm-provider"
-import { OpenRouterModelCache } from "./openrouter-models"
-import { fetchOpenRouterModelsRaw } from "./openrouter-models-io.adapter"
 import { toJsonValue } from "./json-boundary"
 import { getMachineDisplayName } from "./machine-name.adapter"
 import { TerminalManager } from "./terminal-manager"
@@ -45,7 +41,6 @@ import type { RepoSuggestion } from "../shared/boards/sync-types"
 import { readOriginRepoSlug } from "./diff-store-git-branch.adapter"
 import { createGitHubIssuesProvider } from "./github-issues.adapter"
 import { readGitHubCliToken } from "./github-cli.adapter"
-import { UpdateManager } from "./update-manager"
 import { PackageUpdateManager } from "./package-update-manager"
 import { createSkillUpdateChecker } from "./skill-update-checker.adapter"
 import {
@@ -59,9 +54,6 @@ import {
 } from "./codex-plugin-update-checker.adapter"
 import { buildPackageUpdateAppliers } from "./package-update-appliers-boot.adapter"
 import { readPackageInventory } from "./package-inventory-io.adapter"
-import type { UpdateInstallAttemptResult } from "./cli-runtime"
-import { compareVersions } from "./cli-runtime"
-import { createUpdateStrategy } from "./update-strategy"
 import { createWsRouter, type ClientState } from "./ws-router"
 import { ScheduleManager } from "./auto-continue/schedule-manager"
 import { CronScheduler } from "./cron/scheduler"
@@ -71,7 +63,6 @@ import { PortProxyGateway } from "./port-proxy/gateway"
 import { initToolCallbackOnBoot, type ToolCallbackService } from "./tool-callback"
 import { SessionShareService } from "./session-share"
 import { recoverQueuedMessages } from "./queued-message-recovery"
-import { initObservability } from "./otel.adapter"
 import { createWorkflowRegistry } from "./workflow-registry"
 import { LocalCatalogService } from "./local-catalog"
 import { defaultHomeDir, scanLocalCatalog, statMtimes } from "./local-catalog-io.adapter"
@@ -156,9 +147,7 @@ interface ApplicationServices {
   store: EventStore
   diffStore: DiffStore
   auth: ReturnType<typeof createAuthManager> | null
-  analytics: KannaAnalyticsReporter
   terminals: TerminalManager
-  updateManager: UpdateManager | null
   packageUpdateManager: PackageUpdateManager
   agent: AgentCoordinator
   router: ReturnType<typeof createWsRouter>
@@ -167,7 +156,6 @@ interface ApplicationServices {
   portProxyGateway: PortProxyGateway
   pushManager: PushManager
   sessionShareService: SessionShareService
-  observability: ReturnType<typeof initObservability>
   scheduleManager: ScheduleManager
   cronScheduler: CronScheduler
   staleEmptyChatPruneInterval: ReturnType<typeof setInterval>
@@ -176,7 +164,6 @@ interface ApplicationServices {
 }
 
 async function createApplicationServices(options: StartKannaServerOptions): Promise<ApplicationServices> {
-  const runtimeProfile = getRuntimeProfile()
   const store = new EventStore(options.dataDir)
   const diffStore = new DiffStore(store.dataDir)
   const machineDisplayName = getMachineDisplayName()
@@ -236,12 +223,6 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
   const keybindings = new KeybindingsManager()
   const appSettings = new AppSettingsManager(path.join(store.dataDir, "settings.json"))
   await appSettings.initialize()
-  const observability = initObservability({
-    dataDir: store.dataDir,
-    telemetry: appSettings.getSnapshot().telemetry,
-    machineName: machineDisplayName,
-  })
-  appSettings.onChange((snapshot) => observability.applyTelemetrySettings(snapshot.telemetry))
   const pushManager = new PushManager({
     store,
     sender: realWebPushSender,
@@ -250,11 +231,6 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
       resolveVapidSubject(appSettings.getSnapshot().push.contactSubject, vapid.subject),
   })
   await pushManager.initialize()
-  const openrouterModelCache = new OpenRouterModelCache({
-    fetchRaw: fetchOpenRouterModelsRaw,
-    ttlMs: 60 * 60 * 1000,
-    now: () => Date.now(),
-  })
   const snapshotStore = new SnapshotStore(path.join(store.dataDir, "shares"))
   const snapshotSources: SnapshotSources = {
     getChatMeta(chatId): ChatMeta | null {
@@ -312,39 +288,7 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
         getMaxAgeMs: () => appSettings.getSnapshot().auth.sessionMaxAgeDays * 86_400_000,
       })
     : null
-  const analytics = new KannaAnalyticsReporter({
-    settings: appSettings,
-    currentVersion: options.update?.version ?? "unknown",
-    environment: runtimeProfile === "dev" ? "dev" : "prod",
-  })
   const terminals = new TerminalManager({ pidRegistry: terminalPidRegistry })
-  const updateManager: UpdateManager | null = (() => {
-    if (!options.update) return null
-    let manager: UpdateManager | null = null
-    const strategy = createUpdateStrategy({
-      reloaderEnv: process.env.KANNA_RELOADER,
-      currentVersion: options.update.version,
-      fetchLatestVersion: options.update.fetchLatestVersion,
-      installVersion: options.update.installVersion,
-      latestVersionHint: () => {
-        const snapshot = manager?.getSnapshot()
-        if (!snapshot) return null
-        const latest = snapshot.latestVersion
-        const current = snapshot.currentVersion
-        if (!latest) return current
-        return compareVersions(latest, current) > 0 ? latest : current
-      },
-      repoDir: process.env.KANNA_REPO_DIR,
-    })
-    manager = new UpdateManager({
-      currentVersion: options.update.version,
-      checker: strategy.checker,
-      reloader: strategy.reloader,
-      devMode: runtimeProfile === "dev",
-      trackEvent: analytics.track.bind(analytics),
-    })
-    return manager
-  })()
   const packageUpdateManager = new PackageUpdateManager({
     inventory: readPackageInventory,
     checkers: [
@@ -396,14 +340,9 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     store,
     scheduleManager,
     cronScheduler,
-    openrouterFirstEntryTimeoutMs: parsePositiveIntEnv(
-      process.env.KANNA_OPENROUTER_FIRST_ENTRY_TIMEOUT_MS,
-      2 * 60 * 1000,
-    ),
     claudeLimitDetector: options.agentOverrides?.claudeLimitDetector,
     codexLimitDetector: options.agentOverrides?.codexLimitDetector,
     throwOnClaudeSessionStart: options.agentOverrides?.throwOnClaudeSessionStart,
-    analytics,
     tunnelGateway: portProxyGateway,
     oauthPool,
     toolCallback,
@@ -419,7 +358,6 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     getAppSettingsSnapshot: () => buildAgentAppSettingsView(appSettings.getSnapshot()),
     persistOAuthState: (id, oauth) => void appSettings.writePatch({ customMcpServers: { setOAuthState: { id, oauth } } }),
     readLlmProvider: () => readLlmProviderSnapshot(),
-    listOpenRouterModels: () => openrouterModelCache.list(),
     onStateChange: (chatId?: string, broadcastOptions?: { immediate?: boolean }) => {
       if (chatId) {
         if (broadcastOptions?.immediate) {
@@ -529,18 +467,15 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     terminals,
     keybindings,
     appSettings,
-    analytics,
     portProxyGateway,
     llmProvider: {
       read: readLlmProviderSnapshot,
       write: writeLlmProviderSnapshot,
       validate: validateLlmProviderCredentials,
     },
-    listOpenRouterModels: () => openrouterModelCache.list(),
     refreshDiscovery,
     getDiscoveredProjects: () => discoveredProjects,
     machineDisplayName,
-    updateManager,
     pushManager,
     ptyInstances: ptyInstanceRegistry,
     workflowRegistry,
@@ -583,9 +518,7 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     store,
     diffStore,
     auth,
-    analytics,
     terminals,
-    updateManager,
     packageUpdateManager,
     agent,
     router,
@@ -594,7 +527,6 @@ async function createApplicationServices(options: StartKannaServerOptions): Prom
     portProxyGateway,
     pushManager,
     sessionShareService,
-    observability,
     scheduleManager,
     cronScheduler,
     staleEmptyChatPruneInterval,
@@ -634,7 +566,7 @@ function rehydrateScheduledWork(services: ApplicationServices): void {
 
 async function shutdownServices(services: ApplicationServices, server: Server<ClientState>): Promise<void> {
   const { store, agent, auth, appSettings, keybindings, scheduleManager, cronScheduler,
-    portProxyGateway, snapshotSweepHandle, observability, staleEmptyChatPruneInterval,
+    portProxyGateway, snapshotSweepHandle, staleEmptyChatPruneInterval,
     followedSessionTickInterval, router, terminals, packageUpdateManager } = services
 
   packageUpdateManager.stop()
@@ -644,7 +576,6 @@ async function shutdownServices(services: ApplicationServices, server: Server<Cl
   const cronDrain = cronScheduler.shutdown()
   portProxyGateway.shutdown()
   snapshotSweepHandle.stop()
-  await observability.shutdown()
   clearInterval(staleEmptyChatPruneInterval)
   clearInterval(followedSessionTickInterval)
   for (const chatId of agent.getActiveTurnChatIds()) {
@@ -665,7 +596,7 @@ const MAX_PORT_ATTEMPTS = 20
 
 export async function startKannaServer(options: StartKannaServerOptions = {}) {
   const services = await createApplicationServices(options)
-  const { store, diffStore, updateManager, appSettings, auth, sessionShareService, router, analytics } = services
+  const { store, diffStore, appSettings, auth, sessionShareService, router } = services
 
   const distDir = options.distDir ?? path.join(import.meta.dir, "..", "..", "dist", "client")
   const fetchHandler = createHttpDispatcher({ store, appSettings, auth, sessionShare: sessionShareService, distDir })
@@ -703,21 +634,12 @@ export async function startKannaServer(options: StartKannaServerOptions = {}) {
   services.portProxyGateway.setBaseUrl(`http://${hostname}:${boundPort}`)
   await services.portProxyGateway.reapOrphanedProxies()
 
-  analytics.trackLaunch({
-    port: boundPort,
-    host: hostname,
-    openBrowser: options.openBrowser ?? true,
-    password: options.password ?? null,
-    strictPort,
-  })
-
   rehydrateScheduledWork(services)
 
   return {
     port: boundPort,
     store,
     diffStore,
-    updateManager,
     appSettings,
     stop: () => shutdownServices(services, server),
   }

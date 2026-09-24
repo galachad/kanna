@@ -22,7 +22,6 @@ import type {
   SubagentInput,
   SubagentPatch,
   SubagentValidationError,
-  UpdateSnapshot,
   EditorPreset,
 } from "./types"
 import type { ChatOpsEvent } from "./chat-ops"
@@ -49,7 +48,6 @@ export interface EditorOpenSettings {
 export type SubscriptionTopic =
   | { type: "sidebar" }
   | { type: "local-projects" }
-  | { type: "update" }
   | { type: "keybindings" }
   | { type: "app-settings" }
   | { type: "push-config" }
@@ -147,10 +145,10 @@ export type ClientCommand =
   | { type: "update.check"; force?: boolean }
   | { type: "update.install"; version?: string }
   | { type: "update.reload" }
+  | { type: "update" }
   | { type: "settings.readKeybindings" }
   | { type: "settings.writeKeybindings"; bindings: KeybindingsSnapshot["bindings"] }
   | { type: "settings.readAppSettings" }
-  | { type: "settings.writeAppSettings"; analyticsEnabled: boolean }
   | { type: "appSettings.setClaudeAuth"; patch: Partial<ClaudeAuthSettings> }
   | { type: "appSettings.testOAuthToken"; token: string; baseUrl?: string }
   | { type: "settings.writeAppSettingsPatch"; patch: AppSettingsPatch }
@@ -161,7 +159,6 @@ export type ClientCommand =
   | { type: "settings.startMcpOAuth"; id: string }
   | { type: "settings.completeMcpOAuth"; id: string; callbackUrl: string }
   | { type: "settings.readLlmProvider" }
-  | { type: "settings.listOpenRouterModels" }
   | { type: "settings.getChangelog" }
   | { type: "skills.search"; query: string; limit?: number }
   | { type: "skills.install"; source: string; skillId: string }

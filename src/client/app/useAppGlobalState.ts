@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { type ChatNavigatorPort } from "./chatNavigator"
-import { type AppSettingsPatch, type AppSettingsSnapshot, type ClaudeAuthSettings, type KeybindingsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type OpenRouterModel, type PushConfigSnapshot, type UpdateInstallResult, type UpdateSnapshot } from "../../shared/types"
+import { type AppSettingsPatch, type AppSettingsSnapshot, type ClaudeAuthSettings, type KeybindingsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type PushConfigSnapshot, type UpdateInstallResult, type UpdateSnapshot } from "../../shared/types"
 import type { AgentProvider, ChatDiffSnapshot, ChatSnapshot, GitWorktree, LocalProjectsSnapshot, ProjectCommandsSnapshot, SidebarChatRow, SidebarData, StackSummary } from "../../shared/types"
 import { NEW_CHAT_COMPOSER_ID, useChatPreferencesStore } from "../stores/chatPreferencesStore"
 import { useNewSessionStore } from "../stores/newSessionStore"
@@ -21,7 +21,6 @@ import { usePtyInstancesStore } from "../stores/ptyInstancesStore"
 import { useFollowedSessionsStore } from "../stores/followedSessionsStore"
 import { useCronJobsStore } from "../stores/cronJobsStore"
 import { useSettingsPageStore } from "../stores/settingsPageStore"
-import { useOpenRouterModelsStore } from "../stores/openrouterModelsStore"
 import { gitSnapshotKey, useKannaStateStore } from "../stores/kannaStateStore"
 import { usePaneLayoutStore } from "../stores/paneLayoutStore"
 import { collectPanes } from "../lib/paneTree"
@@ -652,20 +651,6 @@ export function useAppGlobalState(
     void handleReadAppSettings()
   }, [connectionStatus, handleReadAppSettings])
 
-  useEffect(() => {
-    if (connectionStatus !== "connected") return
-    const store = useOpenRouterModelsStore.getState()
-    store.setLoading()
-    void socket
-      .command<OpenRouterModel[]>({ type: "settings.listOpenRouterModels" })
-      .then((models) => {
-        useOpenRouterModelsStore.getState().setModels(models)
-      })
-      .catch(onRejected((error) => {
-        const message = error.message
-        useOpenRouterModelsStore.getState().setError(message)
-      }))
-  }, [connectionStatus, socket])
 
   const handleWriteAppSettings = useCallback(async (patch: AppSettingsPatch) => {
     try {

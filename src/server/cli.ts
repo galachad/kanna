@@ -20,16 +20,7 @@ const result = await runCli(argv, {
   version: VERSION,
   bunVersion: getBunVersion(),
   startServer: async (options) => {
-    const started = await startKannaServer(options)
-    if (started.updateManager && options.update) {
-      started.updateManager.onChange((snapshot) => {
-        if (snapshot.status !== "restart_pending") return
-        log.info(`${LOG_PREFIX} update installed, shutting down current process for restart`)
-        resolveExitAction?.("ui_restart")
-      })
-    }
-
-    return started
+    return await startKannaServer(options)
   },
   fetchLatestVersion: fetchLatestPackageVersion,
   installVersion: installPackageVersion,

@@ -1,6 +1,5 @@
 import {
   DEFAULT_OPENAI_SDK_MODEL,
-  DEFAULT_OPENROUTER_SDK_MODEL,
   type LlmProviderKind,
 } from "../../shared/types"
 
@@ -13,7 +12,6 @@ export interface LlmProviderDraft {
 
 export function getDefaultLlmProviderModel(provider: LlmProviderKind): string {
   if (provider === "openai") return DEFAULT_OPENAI_SDK_MODEL
-  if (provider === "openrouter") return DEFAULT_OPENROUTER_SDK_MODEL
   return ""
 }
 

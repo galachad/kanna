@@ -15,7 +15,6 @@ import { mergePluginPatch, normalizePluginState } from "./plugins/plugin-setting
 import {
   normalizeAuthSettings,
   normalizePushSettings,
-  normalizeTelemetrySettings,
   normalizeTypographySettings,
   normalizeUploadSettings,
 } from "../shared/settings/index"
@@ -31,7 +30,6 @@ import {
   CLAUDE_PTY_MAX_CONCURRENT_MIN,
   DEFAULT_CLAUDE_MODEL_OPTIONS,
   DEFAULT_CODEX_MODEL_OPTIONS,
-  DEFAULT_OPENROUTER_SDK_MODEL,
   GLOBAL_PROMPT_APPEND_MAX_CHARS,
   isClaudeDriverPreference,
   isClaudeReasoningEffort,
@@ -64,7 +62,6 @@ import {
   type ClaudeModelOptions,
   type ClaudePtyLifecycleSettings,
   type CodexModelOptions,
-  type OpenRouterModelOptions,
   type ClaudeReasoningEffort,
   type CustomModelEntry,
   type CustomModelInput,
@@ -102,8 +99,6 @@ type StatusPatch = Partial<Pick<OAuthTokenEntry,
 >>
 
 interface AppSettingsFile {
-  analyticsEnabled?: boolean
-  analyticsUserId?: string
   browserSettingsMigrated?: boolean
   theme?: string
   typography?: { scale?: string }
@@ -124,10 +119,8 @@ interface AppSettingsFile {
   providerDefaults?: {
     claude?: Partial<ProviderPreference<Partial<ClaudeModelOptions>>> & { effort?: string }
     codex?: Partial<ProviderPreference<Partial<CodexModelOptions>>> & { effort?: string }
-    openrouter?: Partial<ProviderPreference<Record<string, never>>>
   }
   push?: JsonObject
-  telemetry?: JsonObject
   auth?: JsonObject
   claudeAuth?: JsonObject
   uploads?: JsonObject
@@ -165,7 +158,6 @@ function isMcpTransport<T>(value: T): value is T & McpServerTransport {
 }
 
 interface AppSettingsState extends AppSettingsSnapshot {
-  analyticsUserId: string
   seededBuiltinModels: string[]
 }
 
@@ -239,10 +231,6 @@ function formatDisplayPath(filePath: string) {
   return filePath
 }
 
-function createAnalyticsUserId() {
-  return `anon_${randomUUID()}`
-}
-
 function getDefaultEditorCommandTemplate(preset: EditorPreset) {
   switch (preset) {
     case "vscode":
@@ -268,11 +256,6 @@ function createDefaultProviderDefaults(): ChatProviderPreferences {
     codex: {
       model: "gpt-5.5",
       modelOptions: { ...DEFAULT_CODEX_MODEL_OPTIONS },
-      planMode: false,
-    },
-    openrouter: {
-      model: DEFAULT_OPENROUTER_SDK_MODEL,
-      modelOptions: {},
       planMode: false,
     },
   }
@@ -403,11 +386,6 @@ function normalizeProviderDefaults(
   return {
     claude: normalizeClaudePreference(value?.claude ?? defaults.claude, customModels),
     codex: normalizeCodexPreference(value?.codex ?? defaults.codex, customModels),
-    openrouter: {
-      model: value?.openrouter?.model ?? DEFAULT_OPENROUTER_SDK_MODEL,
-      modelOptions: {},
-      planMode: Boolean(value?.openrouter?.planMode),
-    },
   }
 }
 
@@ -871,7 +849,6 @@ function toFilePayload({ warning: _warning, filePathDisplay: _filePathDisplay, .
 }
 
 function toSnapshot({
-  analyticsUserId: _analyticsUserId,
   seededBuiltinModels: _seededBuiltinModels,
   ...snapshot
 }: AppSettingsState): AppSettingsSnapshot {
@@ -889,22 +866,7 @@ function normalizeAppSettings<T>(
     warnings.push("Settings file must contain a JSON object")
   }
 
-  const analyticsEnabled = typeof source?.analyticsEnabled === "boolean" ? source.analyticsEnabled : true
-  if (source?.analyticsEnabled !== undefined && typeof source.analyticsEnabled !== "boolean") {
-    warnings.push("analyticsEnabled must be a boolean")
-  }
-
-  const rawAnalyticsUserId = typeof source?.analyticsUserId === "string" ? source.analyticsUserId.trim() : ""
-  if (source?.analyticsUserId !== undefined && typeof source.analyticsUserId !== "string") {
-    warnings.push("analyticsUserId must be a string")
-  }
-  const analyticsUserId = rawAnalyticsUserId || createAnalyticsUserId()
-  if (!rawAnalyticsUserId && source?.analyticsUserId !== undefined) {
-    warnings.push("analyticsUserId must be a non-empty string")
-  }
-
   const push = normalizePushSettings(source?.push, warnings)
-  const telemetry = normalizeTelemetrySettings(source?.telemetry, warnings)
   const auth = normalizeAuthSettings(source?.auth, warnings)
   const pluginState = normalizePluginState(source, warnings)
   const claudeAuth = normalizeClaudeAuth(source?.claudeAuth, warnings)
@@ -930,8 +892,6 @@ function normalizeAppSettings<T>(
 
   const editorPreset = normalizeEditorPreset(source?.editor?.preset)
   const state: AppSettingsState = {
-    analyticsEnabled,
-    analyticsUserId,
     browserSettingsMigrated: source?.browserSettingsMigrated === true,
     theme: normalizeTheme(source?.theme),
     typography: normalizeTypographySettings(source?.typography, warnings),
@@ -953,7 +913,6 @@ function normalizeAppSettings<T>(
     warning: null,
     filePathDisplay: formatDisplayPath(filePath),
     push,
-    telemetry,
     auth,
     claudeAuth,
     uploads,
@@ -1310,9 +1269,9 @@ function normalizeCustomModels<T>(value: T, warnings: string[]): CustomModelEntr
 }
 
 function mergeSubagentModelOptions(
-  existing: ClaudeModelOptions | CodexModelOptions | OpenRouterModelOptions,
-  patch: Partial<ClaudeModelOptions> | Partial<CodexModelOptions> | OpenRouterModelOptions | undefined,
-): ClaudeModelOptions | CodexModelOptions | OpenRouterModelOptions {
+  existing: ClaudeModelOptions | CodexModelOptions,
+  patch: Partial<ClaudeModelOptions> | Partial<CodexModelOptions> | undefined,
+): ClaudeModelOptions | CodexModelOptions {
   if (!patch) return existing
   if ("contextWindow" in existing) {
     const claudePatch = "contextWindow" in patch ? patch : undefined
@@ -1552,19 +1511,10 @@ function applyPatch(state: AppSettingsState, patch: AppSettingsPatch): AppSettin
           ...patch.providerDefaults?.codex?.modelOptions,
         },
       },
-      openrouter: {
-        ...state.providerDefaults.openrouter,
-        ...patch.providerDefaults?.openrouter,
-        modelOptions: {},
-      },
     },
     push: {
       ...state.push,
       ...patch.push,
-    },
-    telemetry: {
-      ...state.telemetry,
-      ...patch.telemetry,
     },
     auth: {
       ...state.auth,
@@ -1670,9 +1620,6 @@ export class AppSettingsManager {
     this.setState(nextState)
   }
 
-  async write(value: { analyticsEnabled: boolean }) {
-    return this.writePatch({ analyticsEnabled: value.analyticsEnabled })
-  }
 
   async setAuth(patch: Partial<AuthSettings>) {
     if (patch.sessionMaxAgeDays !== undefined) {

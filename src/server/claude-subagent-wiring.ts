@@ -25,7 +25,7 @@ import type { RealpathFn } from "./paths"
 import { resolveSubagentRoots } from "./paths"
 import { toJsonObject } from "./json-boundary"
 import { resolveProjectInstructions, resolveSpawnPaths, resolveStackProjects } from "./claude-session-config"
-import { openrouterAuthReady, claudeAuthReady } from "./provider-catalog"
+import { claudeAuthReady } from "./provider-catalog"
 import { OAuthPoolUnavailableError } from "./oauth-errors"
 import type { startClaudeSession as StartClaudeSessionFn } from "./claude-session-start"
 
@@ -228,9 +228,6 @@ export function buildSubagentProviderRunForChat(
     onToolRequest,
     globalPromptAppend: deps.getAppSettingsSnapshot().globalPromptAppend,
     authReady: async (provider) => {
-      if (provider === "openrouter") {
-        return openrouterAuthReady(await deps.readLlmProvider())
-      }
       if (provider === "claude") {
         return claudeAuthReady(deps.oauthPool, args.chatId)
       }
@@ -246,10 +243,6 @@ export function buildSubagentProviderRunForChat(
       if (picked) deps.oauthPool!.markUsed(picked.id)
       if (!picked) return null
       return { token: picked.token, baseUrl: picked.baseUrl }
-    },
-    readOpenRouterKey: async () => {
-      const provider = await deps.readLlmProvider()
-      return provider.apiKey || null
     },
   })
 }

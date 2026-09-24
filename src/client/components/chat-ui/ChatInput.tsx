@@ -968,7 +968,7 @@ const ChatInputInner = forwardRef<ChatInputHandle, Props>((
               setClaudeContextWindow(change.contextWindow)
               break
             case "fastMode":
-              updateComposerState((state) => state.provider === "claude" || state.provider === "openrouter"
+              updateComposerState((state) => state.provider === "claude"
                 ? state
                 : { ...state, modelOptions: { ...state.modelOptions, fastMode: change.fastMode } })
               break

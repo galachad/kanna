@@ -5,18 +5,15 @@ import type {
   LlmProviderSnapshot,
   LlmProviderValidationResult,
   McpServerConfig,
-  OpenRouterModel,
   Subagent,
   SubagentInput,
   SubagentPatch,
   SubagentValidationError,
 } from "../shared/types"
 import type { ClientCommand, ServerEnvelope } from "../shared/protocol"
-import type { AnalyticsReporter } from "./analytics"
 import { KeybindingsManager } from "./keybindings"
 import { validateMcpServer } from "./mcp-validator"
 import { startMcpOAuth, completeMcpOAuth, ensureFreshMcpToken } from "./mcp-oauth.adapter"
-import { fetchGitHubReleases } from "./diff-store"
 import { log } from "../shared/log"
 import {
   searchSkills,
@@ -30,7 +27,6 @@ import type { PackageUpdateManager } from "./package-update-manager"
 
 export interface ResolvedAppSettings {
   getSnapshot(): AppSettingsSnapshot
-  write(value: { analyticsEnabled: boolean }): Promise<AppSettingsSnapshot>
   writePatch(patch: AppSettingsPatch): Promise<AppSettingsSnapshot>
   setClaudeAuth(patch: Partial<AppSettingsSnapshot["claudeAuth"]>): Promise<AppSettingsSnapshot>
   createSubagent(input: SubagentInput): Promise<Subagent | SubagentValidationError>
@@ -47,9 +43,7 @@ export interface ResolvedLlmProvider {
 export interface SettingsCommandDeps {
   keybindings: KeybindingsManager
   resolvedAppSettings: ResolvedAppSettings
-  resolvedAnalytics: Pick<AnalyticsReporter, "track">
   resolvedLlmProvider: ResolvedLlmProvider
-  listOpenRouterModels: (() => Promise<OpenRouterModel[]>) | undefined
   packageUpdateManager?: PackageUpdateManager
   send: (envelope: ServerEnvelope) => void
 }
@@ -139,7 +133,7 @@ export async function handleSettingsCommand(
   command: ClientCommand,
   id: string,
 ): Promise<boolean> {
-  const { keybindings, resolvedAppSettings, resolvedAnalytics, resolvedLlmProvider, listOpenRouterModels, packageUpdateManager, send } = deps
+  const { keybindings, resolvedAppSettings, resolvedLlmProvider, packageUpdateManager, send } = deps
 
   switch (command.type) {
     case "settings.readKeybindings": {
@@ -155,31 +149,7 @@ export async function handleSettingsCommand(
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: resolvedAppSettings.getSnapshot() })
       return true
     }
-    case "settings.writeAppSettings": {
-      const previousAnalyticsEnabled = resolvedAppSettings.getSnapshot().analyticsEnabled
-      if (previousAnalyticsEnabled && !command.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_disabled")
-      }
-      const snapshot = await resolvedAppSettings.write({ analyticsEnabled: command.analyticsEnabled })
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
-      if (!previousAnalyticsEnabled && command.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_enabled")
-      }
-      return true
-    }
-    case "appSettings.setClaudeAuth": {
-      await resolvedAppSettings.setClaudeAuth(command.patch)
-      const snapshot = resolvedAppSettings.getSnapshot()
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
-      return true
-    }
-    case "appSettings.testOAuthToken": {
-      const result = await testOAuthToken(command.token, command.baseUrl)
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result })
-      return true
-    }
     case "settings.writeAppSettingsPatch": {
-      const previousAnalyticsEnabled = resolvedAppSettings.getSnapshot().analyticsEnabled
       const snapshot = await resolvedAppSettings.writePatch(command.patch)
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
 
@@ -198,12 +168,6 @@ export async function handleSettingsCommand(
         void runMcpAutoTest(targetId, resolvedAppSettings)
       }
 
-      if (command.patch.analyticsEnabled !== undefined && previousAnalyticsEnabled && !snapshot.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_disabled")
-      }
-      if (command.patch.analyticsEnabled !== undefined && !previousAnalyticsEnabled && snapshot.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_enabled")
-      }
       return true
     }
     case "subagent.create": {
@@ -320,14 +284,8 @@ export async function handleSettingsCommand(
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: await resolvedLlmProvider.read() })
       return true
     }
-    case "settings.listOpenRouterModels": {
-      const models = listOpenRouterModels ? await listOpenRouterModels() : []
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: models })
-      return true
-    }
     case "settings.getChangelog": {
-      const releases = await fetchGitHubReleases("cuongtranba/kanna")
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: releases })
+      send({ v: PROTOCOL_VERSION, type: "ack", id, result: [] })
       return true
     }
     case "settings.writeLlmProvider": {

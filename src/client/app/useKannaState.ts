@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { PROVIDERS, type AgentProvider, type AppSettingsPatch, type AskUserQuestionAnswerMap, type ChatAttachment, type ChatDiffSnapshot, type ChatHistoryPage, type ClaudeAuthSettings, type GitWorktree, type KeybindingsSnapshot, type LocalProjectsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type ModelOptions, type OpenRouterModel, type ProviderCatalogEntry, type PushConfigSnapshot, type QueuedChatMessage, type SidebarChatRow, type SidebarData, type StackSummary, type TranscriptEntry, type UpdateSnapshot, type UserPromptEntry } from "../../shared/types"
+import { PROVIDERS, type AgentProvider, type AppSettingsPatch, type AskUserQuestionAnswerMap, type ChatAttachment, type ChatDiffSnapshot, type ChatHistoryPage, type ClaudeAuthSettings, type GitWorktree, type KeybindingsSnapshot, type LocalProjectsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type ModelOptions, type ProviderCatalogEntry, type PushConfigSnapshot, type QueuedChatMessage, type SidebarChatRow, type SidebarData, type StackSummary, type TranscriptEntry, type UpdateSnapshot, type UserPromptEntry } from "../../shared/types"
 import { NEW_CHAT_COMPOSER_ID, type ComposerState, useChatPreferencesStore } from "../stores/chatPreferencesStore"
 import { DEFAULT_EDITOR_PRESET, getEditorPresetLabel } from "../stores/terminalPreferencesStore"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
@@ -17,7 +17,6 @@ import { canCancelStatus, getLatestToolIds, isPrimaryChatInstance, isProcessingS
 import type { KannaSocket, SocketStatus } from "./socket"
 import type { ChatPermissionPolicyOverride, ToolRequestDecision } from "../../shared/permission-policy"
 import { useWorkflowsStore } from "../stores/workflowsStore"
-import { useOpenRouterModelsStore } from "../stores/openrouterModelsStore"
 import { gitSnapshotKey, useKannaStateStore } from "../stores/kannaStateStore"
 import { useChatStateStore, selectChatSlice } from "../stores/chatStateStore"
 import type { EditorOpenSettings, ImportSessionsByIdsResult, OpenExternalAction, WorkflowsSnapshot } from "../../shared/protocol"
@@ -52,23 +51,6 @@ function sameTranscriptEntries(left: ChatSnapshot["messages"] | null | undefined
   if (!left || !right) return false
   if (left.length !== right.length) return false
   return left.every((entry, index) => entry._id === right[index]?._id)
-}
-
-function mergeOpenRouterModels(
-  providers: ProviderCatalogEntry[],
-  models: OpenRouterModel[],
-): ProviderCatalogEntry[] {
-  if (models.length === 0) return providers
-  return providers.map((entry) => {
-    if (entry.id !== "openrouter") return entry
-    return {
-      ...entry,
-      models: models.map((m) => ({
-        id: m.id,
-        label: m.label,
-      })),
-    }
-  })
 }
 
 function sameProviders(left: ProviderCatalogEntry[] | null | undefined, right: ProviderCatalogEntry[] | null | undefined) {
@@ -689,11 +671,7 @@ export function useKannaState(activeChatId: string | null, ports: KannaStatePort
     : null
   const effectiveRuntimeStatus = optimisticRuntimeStatus ?? runtime?.status ?? null
   const baseAvailableProviders = activeChatSnapshot?.availableProviders ?? PROVIDERS
-  const openrouterModels = useOpenRouterModelsStore(useShallow((s) => s.models))
-  const availableProviders = useMemo(
-    () => mergeOpenRouterModels(baseAvailableProviders, openrouterModels),
-    [baseAvailableProviders, openrouterModels],
-  )
+  const availableProviders = useMemo(() => baseAvailableProviders, [baseAvailableProviders])
   const isProcessing = isProcessingStatus(effectiveRuntimeStatus ?? undefined)
   const canCancel = canCancelStatus(effectiveRuntimeStatus ?? undefined)
   const isDraining = runtime?.isDraining ?? false

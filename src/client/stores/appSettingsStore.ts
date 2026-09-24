@@ -54,19 +54,10 @@ export function mergeAppSettingsPatch(
           ...patch.providerDefaults?.codex?.modelOptions,
         },
       },
-      openrouter: {
-        ...settings.providerDefaults.openrouter,
-        ...patch.providerDefaults?.openrouter,
-        modelOptions: {},
-      },
     },
     push: {
       ...settings.push,
       ...patch.push,
-    },
-    telemetry: {
-      ...settings.telemetry,
-      ...patch.telemetry,
     },
     claudeAuth: {
       tokens: patch.claudeAuth?.tokens ?? settings.claudeAuth.tokens,

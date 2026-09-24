@@ -1,5 +1,3 @@
-import type { JsonObject } from "../shared/json"
-
 import { PROTOCOL_VERSION } from "../shared/types"
 import type { GitWorktree } from "../shared/types"
 import type { ClientCommand, ServerEnvelope } from "../shared/protocol"
@@ -37,10 +35,6 @@ export interface MiscAgentDep {
   dequeue(command: Extract<ClientCommand, { type: "message.dequeue" }>): Promise<void>
 }
 
-export interface MiscAnalyticsDep {
-  track(event: string, props?: JsonObject): void
-}
-
 export type ShareResult<T> = { ok: true; data: T } | { ok: false; error: ShareError }
 
 export interface MiscSessionShareDep {
@@ -54,7 +48,6 @@ export interface MiscCommandDeps {
   terminals: MiscTerminalsDep
   agent: MiscAgentDep
   sessionShare?: MiscSessionShareDep | null
-  analytics: MiscAnalyticsDep
   listWorktrees(repoPath: string): Promise<GitWorktree[]>
   getOriginHost(): string
   send(envelope: ServerEnvelope): void
@@ -69,7 +62,7 @@ export async function handleMiscCommand(
   command: ClientCommand,
   id: string,
 ): Promise<boolean> {
-  const { store, terminals, agent, sessionShare, analytics, send, broadcastSidebar, broadcastChatAndSidebar, pushTerminalSnapshot, listWorktrees, getOriginHost } = deps
+  const { store, terminals, agent, sessionShare, send, broadcastSidebar, broadcastChatAndSidebar, pushTerminalSnapshot, listWorktrees, getOriginHost } = deps
 
   switch (command.type) {
     case "message.enqueue": {
@@ -129,7 +122,6 @@ export async function handleMiscCommand(
         await store.setStackInstructions(stack.id, command.instructions)
       }
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: { stackId: stack.id } })
-      analytics.track("stack_created")
       await broadcastSidebar()
       return true
     }
@@ -142,7 +134,6 @@ export async function handleMiscCommand(
     case "stack.setInstructions": {
       await store.setStackInstructions(command.stackId, command.instructions)
       send({ v: PROTOCOL_VERSION, type: "ack", id })
-      analytics.track("stack_instructions_set")
       await broadcastSidebar()
       return true
     }

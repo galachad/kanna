@@ -6,7 +6,6 @@ import { isJsonObject, type JsonValue } from "../shared/json"
 import { getLlmProviderFilePath } from "../shared/branding"
 import {
   DEFAULT_OPENAI_SDK_MODEL,
-  DEFAULT_OPENROUTER_SDK_MODEL,
   type LlmProviderKind,
   type LlmProviderSnapshot,
   type LlmProviderValidationResult,
@@ -18,7 +17,6 @@ export {
 } from "./llm-provider-store.adapter"
 
 export const OPENAI_BASE_URL = "https://api.openai.com/v1"
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 const DEFAULT_PROVIDER: LlmProviderKind = "openai"
 
@@ -32,7 +30,7 @@ function formatDisplayPath(filePath: string) {
 }
 
 function resolveProvider(value: JsonValue | undefined) {
-  if (value === "openai" || value === "openrouter" || value === "custom") {
+  if (value === "openai" || value === "custom") {
     return value
   }
   return null
@@ -44,13 +42,11 @@ function normalizeString(value: JsonValue | undefined) {
 
 export function resolveLlmProviderBaseUrl(provider: LlmProviderKind, baseUrl: string) {
   if (provider === "openai") return OPENAI_BASE_URL
-  if (provider === "openrouter") return OPENROUTER_BASE_URL
   return baseUrl.trim()
 }
 
 export function resolveLlmProviderDefaultModel(provider: LlmProviderKind) {
   if (provider === "openai") return DEFAULT_OPENAI_SDK_MODEL
-  if (provider === "openrouter") return DEFAULT_OPENROUTER_SDK_MODEL
   return ""
 }
 
@@ -74,7 +70,7 @@ export function normalizeLlmProviderSnapshot(
   const baseUrl = normalizeString(source.baseUrl)
 
   if (!provider) {
-    warnings.push("provider must be one of openai, openrouter, or custom")
+    warnings.push("provider must be one of openai or custom")
   }
   if (source.apiKey !== undefined && typeof source.apiKey !== "string") {
     warnings.push("apiKey must be a string")

@@ -2,9 +2,9 @@
 export const STORE_VERSION = 3 as const
 export const PROTOCOL_VERSION = 1 as const
 
-export const AGENT_PROVIDERS = ["claude", "codex", "openrouter"] as const
+export const AGENT_PROVIDERS = ["claude", "codex"] as const
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
-export type LlmProviderKind = "openai" | "openrouter" | "custom"
+export type LlmProviderKind = "openai" | "custom"
 export type AppThemePreference = "light" | "dark" | "system"
 export type ChatSoundPreference = "never" | "unfocused" | "always"
 export type ChatSoundId = "blow" | "bottle" | "frog" | "funk" | "glass" | "ping" | "pop" | "purr" | "tink"
