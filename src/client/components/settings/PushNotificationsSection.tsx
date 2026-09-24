@@ -42,8 +42,7 @@ export function PushNotificationsSection(props: PushNotificationsSectionProps) {
   if (permissionState === "insecure-context") {
     return (
       <p className="text-sm text-muted-foreground">
-        Push requires HTTPS. Run <code className={codeChip}>kanna --share</code> or open Kanna over a tunnel,
-        then enable on this device.
+        Push requires HTTPS. Open Kanna over HTTPS on this device, then enable notifications.
       </p>
     )
   }
@@ -182,9 +181,7 @@ export function PushNotificationsSection(props: PushNotificationsSectionProps) {
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Phone setup: this page must be reachable over HTTPS. Run{" "}
-        <code className={codeChip}>kanna --share</code> or open Kanna over your tunnel on the phone,
-        then enable on that device.
+        Phone setup: this page must be reachable over HTTPS on the phone before you can enable notifications there.
       </p>
     </div>
   )

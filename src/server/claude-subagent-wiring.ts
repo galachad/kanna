@@ -16,7 +16,7 @@ import { buildSubagentProviderRun } from "./subagent-provider-run"
 import type { StartClaudeSessionPtyArgs } from "./claude-pty/driver"
 import type { ChatPermissionPolicy } from "../shared/permission-policy"
 import type { ToolCallbackService } from "./tool-callback"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { ClaudePtyRegistry } from "./claude-pty/pid-registry.adapter"
 import type { PtyInstanceRegistry } from "./claude-pty/pty-instance-registry"
 import type { WorkflowRegistry } from "./workflow-registry"
@@ -25,7 +25,7 @@ import type { RealpathFn } from "./paths"
 import { resolveSubagentRoots } from "./paths"
 import { toJsonObject } from "./json-boundary"
 import { resolveProjectInstructions, resolveSpawnPaths, resolveStackProjects } from "./claude-session-config"
-import { openrouterAuthReady, claudeAuthReady } from "./provider-catalog"
+import { claudeAuthReady } from "./provider-catalog"
 import { OAuthPoolUnavailableError } from "./oauth-errors"
 import type { startClaudeSession as StartClaudeSessionFn } from "./claude-session-start"
 
@@ -52,7 +52,7 @@ export interface SubagentWiringDeps {
   startClaudeSessionPTYFn: (args: StartClaudeSessionPtyArgs) => Promise<ClaudeSessionHandle>
 
   toolCallback: ToolCallbackService | null
-  tunnelGateway: TunnelGateway | null
+  tunnelGateway: PortProxyGateway | null
   claudePtyRegistry: ClaudePtyRegistry | null
   ptyInstanceRegistry: PtyInstanceRegistry | null
   workflowRegistry: WorkflowRegistry | null
@@ -228,9 +228,6 @@ export function buildSubagentProviderRunForChat(
     onToolRequest,
     globalPromptAppend: deps.getAppSettingsSnapshot().globalPromptAppend,
     authReady: async (provider) => {
-      if (provider === "openrouter") {
-        return openrouterAuthReady(await deps.readLlmProvider())
-      }
       if (provider === "claude") {
         return claudeAuthReady(deps.oauthPool, args.chatId)
       }
@@ -246,10 +243,6 @@ export function buildSubagentProviderRunForChat(
       if (picked) deps.oauthPool!.markUsed(picked.id)
       if (!picked) return null
       return { token: picked.token, baseUrl: picked.baseUrl }
-    },
-    readOpenRouterKey: async () => {
-      const provider = await deps.readLlmProvider()
-      return provider.apiKey || null
     },
   })
 }

@@ -77,7 +77,7 @@ async function main() {
         new Set(),
         chat.id,
         (chatId) => store2.getRecentChatHistory(chatId, RECENT_LIMIT),
-        (chatId) => store2.getTunnelEvents(chatId),
+        (chatId) => store2.getPortProxyEvents(chatId),
         new Map(),
         Date.now(),
         new Map(),

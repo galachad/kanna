@@ -447,40 +447,25 @@ async function startTurnAfterTurnStarted(
     void turn.getAccountInfo()
       .then(async (accountInfo) => {
         const session = deps.claudeSessions.get(args.chatId)
-        if (args.provider === "openrouter") {
+        if (!accountInfo) return
+        let augmented = accountInfo
+        if (args.provider === "claude") {
           if (!session) return
           if (session.accountInfoLoaded) return
           session.accountInfoLoaded = true
-          await deps.store.appendMessage(args.chatId, timestamped({
-            kind: "account_info",
-            accountInfo: {
-              tokenSource: "openrouter",
-              ...(session.openrouterKeyMasked ? { oauthKeyMasked: session.openrouterKeyMasked } : {}),
-              ...(session.openrouterModel ? { organization: session.openrouterModel } : {}),
-            },
-          }))
-          deps.emitStateChange(args.chatId)
-        } else {
-          if (!accountInfo) return
-          let augmented = accountInfo
-          if (args.provider === "claude") {
-            if (!session) return
-            if (session.accountInfoLoaded) return
-            session.accountInfoLoaded = true
-            if (session.activeTokenId) {
-              augmented = {
-                ...accountInfo,
-                tokenSource: "kanna-oauth-pool",
-                ...(session.oauthLabel ? { organization: session.oauthLabel } : {}),
-                ...(session.oauthKeyMasked ? { oauthKeyMasked: session.oauthKeyMasked } : {}),
-              }
-            } else if (session.oauthKeyMasked && !accountInfo.oauthKeyMasked) {
-              augmented = { ...accountInfo, oauthKeyMasked: session.oauthKeyMasked }
+          if (session.activeTokenId) {
+            augmented = {
+              ...accountInfo,
+              tokenSource: "kanna-oauth-pool",
+              ...(session.oauthLabel ? { organization: session.oauthLabel } : {}),
+              ...(session.oauthKeyMasked ? { oauthKeyMasked: session.oauthKeyMasked } : {}),
             }
+          } else if (session.oauthKeyMasked && !accountInfo.oauthKeyMasked) {
+            augmented = { ...accountInfo, oauthKeyMasked: session.oauthKeyMasked }
           }
-          await deps.store.appendMessage(args.chatId, timestamped({ kind: "account_info", accountInfo: augmented }))
-          deps.emitStateChange(args.chatId)
         }
+        await deps.store.appendMessage(args.chatId, timestamped({ kind: "account_info", accountInfo: augmented }))
+        deps.emitStateChange(args.chatId)
       })
       .catch(() => undefined)
   }

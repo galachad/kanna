@@ -1,4 +1,4 @@
-import type { Attributes } from "@opentelemetry/api"
+import type { Attributes } from "./observability"
 import type { AgentProvider } from "../shared/types"
 import type {
   CompactBoundaryMetadata,

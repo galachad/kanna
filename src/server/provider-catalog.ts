@@ -5,7 +5,6 @@ import type {
   ModelOptions,
   ProviderCatalogEntry,
   ServiceTier,
-  LlmProviderSnapshot,
   CustomModelEntry,
 } from "../shared/types"
 import {
@@ -98,11 +97,7 @@ export function codexServiceTierFromModelOptions(modelOptions: CodexModelOptions
 }
 
 export function isClaudeSdkProvider(provider: AgentProvider): boolean {
-  return provider === "claude" || provider === "openrouter"
-}
-
-export function openrouterAuthReady(snapshot: LlmProviderSnapshot): boolean {
-  return snapshot.provider === "openrouter" && snapshot.enabled && snapshot.apiKey.length > 0
+  return provider === "claude"
 }
 
 export interface ClaudeAuthPoolProbe {

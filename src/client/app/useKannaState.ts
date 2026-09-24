@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { PROVIDERS, type AgentProvider, type AppSettingsPatch, type AskUserQuestionAnswerMap, type ChatAttachment, type ChatDiffSnapshot, type ChatHistoryPage, type ClaudeAuthSettings, type CloudflareTunnelSettings, type GitWorktree, type KeybindingsSnapshot, type LocalProjectsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type ModelOptions, type OpenRouterModel, type ProviderCatalogEntry, type PushConfigSnapshot, type QueuedChatMessage, type SidebarChatRow, type SidebarData, type StackSummary, type TranscriptEntry, type UpdateSnapshot, type UserPromptEntry } from "../../shared/types"
+import { PROVIDERS, type AgentProvider, type AppSettingsPatch, type AskUserQuestionAnswerMap, type ChatAttachment, type ChatDiffSnapshot, type ChatHistoryPage, type ClaudeAuthSettings, type GitWorktree, type KeybindingsSnapshot, type LocalProjectsSnapshot, type LlmProviderSnapshot, type LlmProviderValidationResult, type ModelOptions, type ProviderCatalogEntry, type PushConfigSnapshot, type QueuedChatMessage, type SidebarChatRow, type SidebarData, type StackSummary, type TranscriptEntry, type UpdateSnapshot, type UserPromptEntry } from "../../shared/types"
 import { NEW_CHAT_COMPOSER_ID, type ComposerState, useChatPreferencesStore } from "../stores/chatPreferencesStore"
 import { DEFAULT_EDITOR_PRESET, getEditorPresetLabel } from "../stores/terminalPreferencesStore"
 import { useAppSettingsStore } from "../stores/appSettingsStore"
 import { useChatInputStore } from "../stores/chatInputStore"
 import { useSlashCommandsStore } from "../stores/slashCommandsStore"
 import { usePreferencesStore } from "../stores/preferences"
-import type { ChatSnapshot, CloudflareTunnelRecord, ProjectCommandsSnapshot } from "../../shared/types"
+import type { ChatSnapshot, PortProxyRecord, ProjectCommandsSnapshot } from "../../shared/types"
 import type { ChatOpsEvent } from "../../shared/chat-ops"
 import type { AskUserQuestionItem } from "../components/messages/types"
 import type { OpenLocalLinkTarget } from "../components/messages/shared"
@@ -17,7 +17,6 @@ import { canCancelStatus, getLatestToolIds, isPrimaryChatInstance, isProcessingS
 import type { KannaSocket, SocketStatus } from "./socket"
 import type { ChatPermissionPolicyOverride, ToolRequestDecision } from "../../shared/permission-policy"
 import { useWorkflowsStore } from "../stores/workflowsStore"
-import { useOpenRouterModelsStore } from "../stores/openrouterModelsStore"
 import { gitSnapshotKey, useKannaStateStore } from "../stores/kannaStateStore"
 import { useChatStateStore, selectChatSlice } from "../stores/chatStateStore"
 import type { EditorOpenSettings, ImportSessionsByIdsResult, OpenExternalAction, WorkflowsSnapshot } from "../../shared/protocol"
@@ -52,23 +51,6 @@ function sameTranscriptEntries(left: ChatSnapshot["messages"] | null | undefined
   if (!left || !right) return false
   if (left.length !== right.length) return false
   return left.every((entry, index) => entry._id === right[index]?._id)
-}
-
-function mergeOpenRouterModels(
-  providers: ProviderCatalogEntry[],
-  models: OpenRouterModel[],
-): ProviderCatalogEntry[] {
-  if (models.length === 0) return providers
-  return providers.map((entry) => {
-    if (entry.id !== "openrouter") return entry
-    return {
-      ...entry,
-      models: models.map((m) => ({
-        id: m.id,
-        label: m.label,
-      })),
-    }
-  })
 }
 
 function sameProviders(left: ProviderCatalogEntry[] | null | undefined, right: ProviderCatalogEntry[] | null | undefined) {
@@ -139,7 +121,7 @@ function sameSchedules(left: ChatSnapshot["schedules"] | null | undefined, right
   })
 }
 
-function sameTunnels(left: Record<string, CloudflareTunnelRecord> | null | undefined, right: Record<string, CloudflareTunnelRecord> | null | undefined) {
+function sameProxies(left: Record<string, PortProxyRecord> | null | undefined, right: Record<string, PortProxyRecord> | null | undefined) {
   if (left === right) return true
   if (!left || !right) return false
   const leftKeys = Object.keys(left)
@@ -151,9 +133,8 @@ function sameTunnels(left: Record<string, CloudflareTunnelRecord> | null | undef
     if (!l || !r) return false
     return l.state === r.state
       && l.url === r.url
-      && l.error === r.error
       && l.port === r.port
-      && l.activatedAt === r.activatedAt
+      && l.createdAt === r.createdAt
       && l.stoppedAt === r.stoppedAt
   })
 }
@@ -218,8 +199,8 @@ export function sameChatSnapshotCore(left: ChatSnapshot | null, right: ChatSnaps
     && sameProviders(left.availableProviders, right.availableProviders)
     && sameSchedules(left.schedules, right.schedules)
     && left.liveScheduleId === right.liveScheduleId
-    && sameTunnels(left.tunnels, right.tunnels)
-    && left.liveTunnelId === right.liveTunnelId
+    && sameProxies(left.proxies, right.proxies)
+    && left.liveProxyId === right.liveProxyId
     && sameSubagentRuns(left.subagentRuns, right.subagentRuns)
     && sameLoopProgress(left.loopProgress, right.loopProgress)
 }
@@ -539,7 +520,6 @@ export interface KannaState {
   handleStartMcpOAuth: (id: string) => Promise<{ ok: boolean; authorizationUrl?: string; alreadyAuthenticated?: boolean; error?: string }>
   handleCompleteMcpOAuth: (id: string, callbackUrl: string) => Promise<{ ok: boolean; error?: string }>
   handleSetChatPolicyOverride: (chatId: string, policyOverride: ChatPermissionPolicyOverride | null) => Promise<void>
-  handleWriteCloudflareTunnel: (patch: Partial<CloudflareTunnelSettings>) => Promise<void>
   handleWriteClaudeAuth: (patch: Partial<ClaudeAuthSettings>) => Promise<void>
   handleTestOAuthToken: (token: string) => Promise<{ ok: boolean; error: string | null }>
   handleReadLlmProvider: () => Promise<void>
@@ -691,11 +671,7 @@ export function useKannaState(activeChatId: string | null, ports: KannaStatePort
     : null
   const effectiveRuntimeStatus = optimisticRuntimeStatus ?? runtime?.status ?? null
   const baseAvailableProviders = activeChatSnapshot?.availableProviders ?? PROVIDERS
-  const openrouterModels = useOpenRouterModelsStore(useShallow((s) => s.models))
-  const availableProviders = useMemo(
-    () => mergeOpenRouterModels(baseAvailableProviders, openrouterModels),
-    [baseAvailableProviders, openrouterModels],
-  )
+  const availableProviders = useMemo(() => baseAvailableProviders, [baseAvailableProviders])
   const isProcessing = isProcessingStatus(effectiveRuntimeStatus ?? undefined)
   const canCancel = canCancelStatus(effectiveRuntimeStatus ?? undefined)
   const isDraining = runtime?.isDraining ?? false

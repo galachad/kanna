@@ -1,22 +1,19 @@
-import { PROTOCOL_VERSION, normalizeAnthropicBaseUrl } from "../shared/types"
+import { PROTOCOL_VERSION } from "../shared/types"
 import type {
   AppSettingsPatch,
   AppSettingsSnapshot,
   LlmProviderSnapshot,
   LlmProviderValidationResult,
   McpServerConfig,
-  OpenRouterModel,
   Subagent,
   SubagentInput,
   SubagentPatch,
   SubagentValidationError,
 } from "../shared/types"
 import type { ClientCommand, ServerEnvelope } from "../shared/protocol"
-import type { AnalyticsReporter } from "./analytics"
 import { KeybindingsManager } from "./keybindings"
 import { validateMcpServer } from "./mcp-validator"
 import { startMcpOAuth, completeMcpOAuth, ensureFreshMcpToken } from "./mcp-oauth.adapter"
-import { fetchGitHubReleases } from "./diff-store"
 import { log } from "../shared/log"
 import {
   searchSkills,
@@ -30,9 +27,7 @@ import type { PackageUpdateManager } from "./package-update-manager"
 
 export interface ResolvedAppSettings {
   getSnapshot(): AppSettingsSnapshot
-  write(value: { analyticsEnabled: boolean }): Promise<AppSettingsSnapshot>
   writePatch(patch: AppSettingsPatch): Promise<AppSettingsSnapshot>
-  setCloudflareTunnel(patch: Partial<AppSettingsSnapshot["cloudflareTunnel"]>): Promise<AppSettingsSnapshot>
   setClaudeAuth(patch: Partial<AppSettingsSnapshot["claudeAuth"]>): Promise<AppSettingsSnapshot>
   createSubagent(input: SubagentInput): Promise<Subagent | SubagentValidationError>
   updateSubagent(id: string, patch: SubagentPatch): Promise<Subagent | SubagentValidationError>
@@ -48,9 +43,7 @@ export interface ResolvedLlmProvider {
 export interface SettingsCommandDeps {
   keybindings: KeybindingsManager
   resolvedAppSettings: ResolvedAppSettings
-  resolvedAnalytics: Pick<AnalyticsReporter, "track">
   resolvedLlmProvider: ResolvedLlmProvider
-  listOpenRouterModels: (() => Promise<OpenRouterModel[]>) | undefined
   packageUpdateManager?: PackageUpdateManager
   send: (envelope: ServerEnvelope) => void
 }
@@ -60,43 +53,6 @@ export function isSubagentValidationError(
   value: Subagent | SubagentValidationError,
 ): value is SubagentValidationError {
   return "code" in value && "message" in value
-}
-
-export const ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com"
-
-export async function testOAuthToken(
-  token: string,
-  baseUrl?: string,
-): Promise<{ ok: boolean; error: string | null }> {
-  const trimmed = typeof token === "string" ? token.trim() : ""
-  if (!trimmed) return { ok: false, error: "Token is empty" }
-  const endpoint = (typeof baseUrl === "string" ? normalizeAnthropicBaseUrl(baseUrl) : null)
-    ?? ANTHROPIC_DEFAULT_BASE_URL
-  try {
-    const res = await fetch(`${endpoint}/v1/messages`, {
-      method: "POST",
-      headers: {
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-        "authorization": `Bearer ${trimmed}`,
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1,
-        messages: [{ role: "user", content: "ok" }],
-      }),
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (res.status === 401 || res.status === 403) return { ok: false, error: "Unauthorized" }
-    if (res.status === 429) return { ok: true, error: "Token valid but currently rate-limited" }
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
-    return { ok: true, error: null }
-  } catch (err) {
-    if (err instanceof Error && err.name === "TimeoutError") {
-      return { ok: false, error: "Request timed out after 10s" }
-    }
-    return { ok: false, error: err instanceof Error ? err.message : String(err) }
-  }
 }
 
 export async function resolveMcpTestBearer<TWriteResult>(
@@ -140,7 +96,7 @@ export async function handleSettingsCommand(
   command: ClientCommand,
   id: string,
 ): Promise<boolean> {
-  const { keybindings, resolvedAppSettings, resolvedAnalytics, resolvedLlmProvider, listOpenRouterModels, packageUpdateManager, send } = deps
+  const { keybindings, resolvedAppSettings, resolvedLlmProvider, packageUpdateManager, send } = deps
 
   switch (command.type) {
     case "settings.readKeybindings": {
@@ -156,37 +112,7 @@ export async function handleSettingsCommand(
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: resolvedAppSettings.getSnapshot() })
       return true
     }
-    case "settings.writeAppSettings": {
-      const previousAnalyticsEnabled = resolvedAppSettings.getSnapshot().analyticsEnabled
-      if (previousAnalyticsEnabled && !command.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_disabled")
-      }
-      const snapshot = await resolvedAppSettings.write({ analyticsEnabled: command.analyticsEnabled })
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
-      if (!previousAnalyticsEnabled && command.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_enabled")
-      }
-      return true
-    }
-    case "appSettings.setCloudflareTunnel": {
-      await resolvedAppSettings.setCloudflareTunnel(command.patch)
-      const snapshot = resolvedAppSettings.getSnapshot()
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
-      return true
-    }
-    case "appSettings.setClaudeAuth": {
-      await resolvedAppSettings.setClaudeAuth(command.patch)
-      const snapshot = resolvedAppSettings.getSnapshot()
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
-      return true
-    }
-    case "appSettings.testOAuthToken": {
-      const result = await testOAuthToken(command.token, command.baseUrl)
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result })
-      return true
-    }
     case "settings.writeAppSettingsPatch": {
-      const previousAnalyticsEnabled = resolvedAppSettings.getSnapshot().analyticsEnabled
       const snapshot = await resolvedAppSettings.writePatch(command.patch)
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
 
@@ -205,12 +131,6 @@ export async function handleSettingsCommand(
         void runMcpAutoTest(targetId, resolvedAppSettings)
       }
 
-      if (command.patch.analyticsEnabled !== undefined && previousAnalyticsEnabled && !snapshot.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_disabled")
-      }
-      if (command.patch.analyticsEnabled !== undefined && !previousAnalyticsEnabled && snapshot.analyticsEnabled) {
-        resolvedAnalytics.track("analytics_enabled")
-      }
       return true
     }
     case "subagent.create": {
@@ -327,14 +247,8 @@ export async function handleSettingsCommand(
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: await resolvedLlmProvider.read() })
       return true
     }
-    case "settings.listOpenRouterModels": {
-      const models = listOpenRouterModels ? await listOpenRouterModels() : []
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: models })
-      return true
-    }
     case "settings.getChangelog": {
-      const releases = await fetchGitHubReleases("cuongtranba/kanna")
-      send({ v: PROTOCOL_VERSION, type: "ack", id, result: releases })
+      send({ v: PROTOCOL_VERSION, type: "ack", id, result: [] })
       return true
     }
     case "settings.writeLlmProvider": {

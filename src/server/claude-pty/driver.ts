@@ -32,7 +32,7 @@ import type { ClaudeSessionHandle } from "../agent"
 import type { HarnessEvent, HarnessToolRequest } from "../harness-types"
 import type { AccountInfo, McpServerConfig, SlashCommand } from "../../shared/types"
 import type { ToolCallbackService } from "../tool-callback"
-import type { TunnelGateway } from "../cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "../port-proxy/gateway"
 import type { ChatPermissionPolicy } from "../../shared/permission-policy"
 
 const STATIC_SUPPORTED_COMMANDS: SlashCommand[] = [
@@ -80,7 +80,7 @@ export interface StartClaudeSessionPtyArgs {
   homeDir?: string
   env?: NodeJS.ProcessEnv
   toolCallback?: ToolCallbackService
-  tunnelGateway?: TunnelGateway | null
+  tunnelGateway?: PortProxyGateway | null
   chatPolicy?: ChatPermissionPolicy
   subagentOrchestrator?: SubagentOrchestrator
   delegationContext?: KannaMcpDelegationContext
@@ -311,7 +311,7 @@ export async function startClaudeSessionPTY(args: StartClaudeSessionPtyArgs): Pr
         localPath: args.localPath,
         chatId: args.chatId,
         sessionId,
-        tunnelGateway: args.tunnelGateway ?? null,
+        portProxyGateway: args.tunnelGateway ?? null,
         toolCallback: args.toolCallback,
         chatPolicy: args.chatPolicy,
         subagentOrchestrator: args.subagentOrchestrator,

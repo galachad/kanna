@@ -19,7 +19,7 @@ import { KANNA_MCP_SERVER_NAME } from "../shared/tools"
 import { buildProjectFileContentUrl, buildLocalFileContentUrl } from "../shared/projectFileUrl"
 import { inferAttachmentContentType, inferProjectFileContentType } from "./uploads"
 import type { TranscriptEntry } from "../shared/types"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import { createAskUserQuestionTool } from "./kanna-mcp-tools/ask-user-question"
 import { createExitPlanModeTool } from "./kanna-mcp-tools/exit-plan-mode"
 import { createReadTool } from "./kanna-mcp-tools/read.adapter"
@@ -75,7 +75,7 @@ export interface KannaMcpArgs extends OfferDownloadArgs {
   chatId?: string
   boardRegistry?: BoardRegistry
   sessionId?: string
-  tunnelGateway?: TunnelGateway | null
+  portProxyGateway?: PortProxyGateway | null
   toolCallback?: ToolCallbackService
   chatPolicy?: ChatPermissionPolicy
   subagentOrchestrator?: SubagentOrchestrator
@@ -275,17 +275,15 @@ Args:
 - label: optional human-readable label shown next to the download link
 `
 
-const EXPOSE_PORT_DESCRIPTION = `Propose a Cloudflare Tunnel for a local port so the user can share or test the running service from outside their machine.
+const EXPOSE_PORT_DESCRIPTION = `Expose a local HTTP service through Kanna's built-in port proxy.
 
-Call this proactively right after you start a local dev server, preview server, or any process that listens on a TCP port the user might want to expose. Pass the exact port the service is listening on. The user always sees a confirmation card in the Kanna chat UI and decides whether to accept; this tool only proposes — it never starts the tunnel itself.
+Call this proactively right after you start a local dev server, preview server, or any process that listens on a TCP port the user might want to open in the browser. Pass the exact port the service is listening on. Proxying is immediate and returns a Kanna URL for that port.
 
 Skip calling for: one-off scripts that exit immediately, internal-only databases, processes that don't accept HTTP, or ports the user has explicitly said not to expose.
 
 Returns one of:
-- proposed: a confirmation card was shown to the user (always-ask mode)
-- auto_exposed: the user enabled auto-expose; cloudflared has been spawned and a URL will appear in the tunnel card shortly
-- already_live: a tunnel for this port is already proposed or active in this chat
-- disabled: the user has not enabled Cloudflare Tunnel in settings
+- started: a new proxy URL was created for this chat and port
+- already_active: this chat already has an active proxy for that port
 - invalid_port: the port is outside the valid range
 `
 
@@ -972,7 +970,7 @@ function resolveChatTaskDeps(args: KannaMcpArgs, chatId: string | null): ChatTas
 }
 
 export function buildKannaMcpTools(args: KannaMcpArgs): KannaSdkToolList {
-  const tunnelGateway = args.tunnelGateway ?? null
+  const portProxyGateway = args.portProxyGateway ?? null
   const chatId = args.chatId ?? null
   const sessionId = args.sessionId ?? ""
   const chatPolicy = args.chatPolicy ?? POLICY_DEFAULT
@@ -1024,8 +1022,8 @@ export function buildKannaMcpTools(args: KannaMcpArgs): KannaSdkToolList {
     ...buildCronToolList({ chatId, armCron: args.armCron, updateCron: args.updateCron }),
   ]
 
-  if (tunnelGateway && chatId) {
-    const boundGateway = tunnelGateway
+  if (portProxyGateway && chatId) {
+    const boundGateway = portProxyGateway
     const boundChatId = chatId
     tools.push(
       tool(
@@ -1036,7 +1034,7 @@ export function buildKannaMcpTools(args: KannaMcpArgs): KannaSdkToolList {
           reason: z.string().optional().describe("Brief description of the service (e.g. \"vite dev server\") shown to the user"),
         },
         async (input) => {
-          const outcome = await boundGateway.proposeFromTool({ chatId: boundChatId, port: input.port })
+          const outcome = await boundGateway.expose({ chatId: boundChatId, port: input.port })
           if (outcome.status === "invalid_port") return fail(outcome.reason)
           return ok(JSON.stringify({ kind: "expose_port_result", ...outcome, reason: input.reason ?? null }))
         },

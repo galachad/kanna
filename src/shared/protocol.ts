@@ -9,7 +9,6 @@ import type {
   ChatDiffSnapshot,
   ChatSnapshot,
   ClaudeAuthSettings,
-  CloudflareTunnelSettings,
   DiffCommitMode,
   KeybindingsSnapshot,
   LlmProviderSnapshot,
@@ -23,7 +22,6 @@ import type {
   SubagentInput,
   SubagentPatch,
   SubagentValidationError,
-  UpdateSnapshot,
   EditorPreset,
 } from "./types"
 import type { ChatOpsEvent } from "./chat-ops"
@@ -50,7 +48,6 @@ export interface EditorOpenSettings {
 export type SubscriptionTopic =
   | { type: "sidebar" }
   | { type: "local-projects" }
-  | { type: "update" }
   | { type: "keybindings" }
   | { type: "app-settings" }
   | { type: "push-config" }
@@ -148,13 +145,11 @@ export type ClientCommand =
   | { type: "update.check"; force?: boolean }
   | { type: "update.install"; version?: string }
   | { type: "update.reload" }
+  | { type: "update" }
   | { type: "settings.readKeybindings" }
   | { type: "settings.writeKeybindings"; bindings: KeybindingsSnapshot["bindings"] }
   | { type: "settings.readAppSettings" }
-  | { type: "settings.writeAppSettings"; analyticsEnabled: boolean }
-  | { type: "appSettings.setCloudflareTunnel"; patch: Partial<CloudflareTunnelSettings> }
   | { type: "appSettings.setClaudeAuth"; patch: Partial<ClaudeAuthSettings> }
-  | { type: "appSettings.testOAuthToken"; token: string; baseUrl?: string }
   | { type: "settings.writeAppSettingsPatch"; patch: AppSettingsPatch }
   | { type: "subagent.create"; input: SubagentInput }
   | { type: "subagent.update"; id: string; patch: SubagentPatch }
@@ -163,7 +158,6 @@ export type ClientCommand =
   | { type: "settings.startMcpOAuth"; id: string }
   | { type: "settings.completeMcpOAuth"; id: string; callbackUrl: string }
   | { type: "settings.readLlmProvider" }
-  | { type: "settings.listOpenRouterModels" }
   | { type: "settings.getChangelog" }
   | { type: "skills.search"; query: string; limit?: number }
   | { type: "skills.install"; source: string; skillId: string }
@@ -387,9 +381,7 @@ export type ClientCommand =
   | { type: "cron.pause"; chatId: string; jobId: string }
   | { type: "cron.resume"; chatId: string; jobId: string }
   | { type: "cron.update"; chatId: string; jobId: string; patch: CronJobPatch }
-  | { type: "tunnel.accept"; chatId: string; tunnelId: string }
-  | { type: "tunnel.stop"; chatId: string; tunnelId: string }
-  | { type: "tunnel.retry"; chatId: string; tunnelId: string }
+  | { type: "proxy.stop"; chatId: string; proxyId: string }
   | { type: "terminal.create"; projectId: string; terminalId: string; cols: number; rows: number; scrollback: number }
   | { type: "terminal.input"; terminalId: string; data: string }
   | { type: "terminal.resize"; terminalId: string; cols: number; rows: number }

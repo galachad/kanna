@@ -1,4 +1,3 @@
-import type { JsonObject } from "../shared/json"
 import { PROTOCOL_VERSION } from "../shared/types"
 import type { ChatHistoryPage, StackBinding } from "../shared/types"
 import { isRecord } from "../shared/errors"
@@ -49,14 +48,9 @@ export interface ChatAgentDep {
   toolCallbackService?: ChatToolCallbackServiceDep | null
 }
 
-export interface ChatAnalyticsDep {
-  track(event: string): void
-}
-
 export interface ChatCommandDeps {
   store: ChatStoreDep
   agent: ChatAgentDep
-  analytics: ChatAnalyticsDep
   setDraftProtection: (chatIds: string[]) => void
   logSendProfilingFn: (
     traceId: string | null | undefined,
@@ -80,7 +74,6 @@ export async function handleChatCommand(
   const {
     store,
     agent,
-    analytics,
     setDraftProtection,
     logSendProfilingFn,
     send,
@@ -97,7 +90,6 @@ export async function handleChatCommand(
         stackBindings: command.stackBindings,
       })
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: { chatId: chat.id } })
-      analytics.track("chat_created")
       await broadcastChatAndSidebar(chat.id)
       return true
     }
@@ -138,7 +130,6 @@ export async function handleChatCommand(
       }
       await store.deleteChat(command.chatId)
       send({ v: PROTOCOL_VERSION, type: "ack", id })
-      analytics.track("chat_deleted")
       await broadcastSidebar()
       return true
     }

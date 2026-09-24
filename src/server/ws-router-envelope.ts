@@ -18,7 +18,6 @@ import type { WorkflowRegistry } from "./workflow-registry"
 import type { BackgroundTaskOutputRegistry } from "./background-task-output-registry"
 import type { BoardRegistry } from "./board-registry"
 import type { FollowedSessionRegistry } from "./followed-session-registry"
-import type { UpdateManager } from "./update-manager"
 import type { PackageUpdateManager } from "./package-update-manager"
 import type { PushManager } from "./push/push-manager"
 import type { DiffStore } from "./diff-store"
@@ -71,7 +70,6 @@ export interface EnvelopeDeps {
   boardRegistry?: BoardRegistry
   followedSessionRegistry?: FollowedSessionRegistry
   machineDisplayName: string
-  updateManager: UpdateManager | null
   packageUpdateManager?: PackageUpdateManager
   getDiscoveredProjects: () => DiscoveredProject[]
   terminals: TerminalManager
@@ -164,7 +162,6 @@ export function createEnvelopeBuilder(deps: EnvelopeDeps): EnvelopeBuilder {
     boardRegistry,
     followedSessionRegistry,
     machineDisplayName,
-    updateManager,
     packageUpdateManager,
     getDiscoveredProjects,
     terminals,
@@ -182,7 +179,7 @@ export function createEnvelopeBuilder(deps: EnvelopeDeps): EnvelopeBuilder {
       agent.getDrainingChatIds(),
       chatId,
       (id) => store.getRecentChatHistory(id, 0),
-      (id) => store.getTunnelEvents(id),
+      (id) => store.getPortProxyEvents(id),
       agent.getWaitStartedAtByChatId(),
       Date.now(),
       agent.getClaudeSessionStates?.() ?? new Map(),
@@ -268,7 +265,7 @@ export function createEnvelopeBuilder(deps: EnvelopeDeps): EnvelopeBuilder {
         id,
         snapshot: {
           type: "update",
-          data: updateManager?.getSnapshot() ?? {
+          data: {
             currentVersion: "unknown",
             latestVersion: null,
             status: "idle",
@@ -453,7 +450,7 @@ export function createEnvelopeBuilder(deps: EnvelopeDeps): EnvelopeBuilder {
       agent.getDrainingChatIds(),
       topic.chatId,
       (chatId) => store.getRecentChatHistory(chatId, topic.recentLimit ?? DEFAULT_CHAT_RECENT_LIMIT),
-      (chatId) => store.getTunnelEvents(chatId),
+      (chatId) => store.getPortProxyEvents(chatId),
       agent.getWaitStartedAtByChatId(),
       Date.now(),
       agent.getClaudeSessionStates?.() ?? new Map(),

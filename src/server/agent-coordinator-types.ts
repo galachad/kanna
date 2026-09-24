@@ -1,5 +1,4 @@
 
-import type { AnalyticsReporter } from "./analytics"
 import type { CodexAppServerManager } from "./codex-app-server"
 import type { GenerateChatTitleResult } from "./generate-title"
 import type { ClaudeSessionHandle, HarnessToolRequest } from "./harness-types"
@@ -16,7 +15,7 @@ import type { KannaMcpDelegationContext, SetupLoopHandlerResult } from "./kanna-
 import type { LoopSetupInput } from "./loop-template"
 import type { LimitDetector } from "./auto-continue/limit-detector"
 import type { ScheduleManager } from "./auto-continue/schedule-manager"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { OAuthTokenPool } from "./oauth-pool/oauth-token-pool"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
 import type { ToolCallbackService } from "./tool-callback"
@@ -50,10 +49,9 @@ export interface ClaudeSessionLifecycleOptions {
 export interface AgentCoordinatorArgs {
   store: EventStore
   onStateChange: (chatId?: string, options?: { immediate?: boolean }) => void
-  analytics?: AnalyticsReporter
   codexManager?: CodexAppServerManager
   generateTitle?: (messageContent: string, cwd: string) => Promise<GenerateChatTitleResult>
-  tunnelGateway?: TunnelGateway
+  tunnelGateway?: PortProxyGateway
   startClaudeSession?: (args: {
     projectId: string
     localPath: string
@@ -65,10 +63,9 @@ export interface AgentCoordinatorArgs {
     oauthToken: string | null
     additionalDirectories?: string[]
     chatId?: string
-    tunnelGateway?: TunnelGateway | null
+    tunnelGateway?: PortProxyGateway | null
     onToolRequest: (request: HarnessToolRequest) => Promise<JsonValue>
     systemPromptAppend?: string
-    openrouterApiKey?: string | null
     subagentOrchestrator?: SubagentOrchestrator
     delegationContext?: KannaMcpDelegationContext
     systemPromptOverride?: string
@@ -93,7 +90,6 @@ export interface AgentCoordinatorArgs {
   scheduleManager?: ScheduleManager
   cronScheduler?: import("./cron/scheduler").CronScheduler
   getAutoResumePreference?: () => boolean
-  openrouterFirstEntryTimeoutMs?: number
   getSubagents?: () => Subagent[]
   getAppSettingsSnapshot?: () => AppSettingsSnapshot
   throwOnClaudeSessionStart?: boolean
@@ -107,7 +103,6 @@ export interface AgentCoordinatorArgs {
   boardRegistry?: import("./board-registry").BoardRegistry
   subagentTranscriptRegistry?: import("./subagent-transcript-registry").SubagentTranscriptRegistry
   readLlmProvider?: () => Promise<LlmProviderSnapshot>
-  listOpenRouterModels?: () => Promise<import("../shared/types").OpenRouterModel[]>
   localCatalog?: import("./local-catalog").LocalCatalogService
   persistOAuthState?: (id: string, oauth: McpOAuthState) => void
   backgroundTaskOutputRegistry?: import("./background-task-output-registry").BackgroundTaskOutputRegistry

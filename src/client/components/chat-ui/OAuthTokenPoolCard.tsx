@@ -36,7 +36,7 @@ export interface OAuthTokenPoolCardProps {
   tokens: OAuthTokenEntry[]
   concurrencyDefault: number
   onWrite: (patch: Partial<ClaudeAuthSettings>) => Promise<void>
-  onTest: (token: string, baseUrl?: string) => Promise<{ ok: boolean; error: string | null }>
+  onTest?: (token: string, baseUrl?: string) => Promise<{ ok: boolean; error: string | null }>
   now?: number
   ports?: TokenRowPorts
 }
@@ -114,7 +114,7 @@ function TokenRow({
   concurrencyDefault: number
   onRemove: () => void
   onToggleDisabled: () => void
-  onTest: (token: string, baseUrl?: string) => Promise<{ ok: boolean; error: string | null }>
+  onTest?: (token: string, baseUrl?: string) => Promise<{ ok: boolean; error: string | null }>
   onChangeMaxConcurrent: (id: string, value: number) => void
   onChangeBaseUrl: (id: string, value: string) => void
   ports?: TokenRowPorts
@@ -140,7 +140,7 @@ function TokenRow({
     if (event.key === "Enter") event.currentTarget.blur()
   }
 
-  const handleTest = async () => {
+  const handleTest = onTest ? async () => {
     setTokenRowTesting(entry.id, true)
     setTokenRowTestResult(entry.id, null)
     try {
@@ -154,7 +154,7 @@ function TokenRow({
     } finally {
       setTokenRowTesting(entry.id, false)
     }
-  }
+  } : undefined
 
   const isDisabled = entry.status === "disabled"
   const effectiveCap = entry.maxConcurrent ?? concurrencyDefault
@@ -195,6 +195,7 @@ function TokenRow({
         {testResult !== null && (
           <span className="text-xs text-muted-foreground">{testResult}</span>
         )}
+        {onTest ? (
         <button
           type="button"
           aria-label="Test"
@@ -205,6 +206,7 @@ function TokenRow({
           <FlaskConical className="size-3" aria-hidden="true" />
           Test
         </button>
+        ) : null}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

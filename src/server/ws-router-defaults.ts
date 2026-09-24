@@ -5,12 +5,9 @@ import {
   CLAUDE_AUTH_DEFAULTS,
   CLAUDE_DRIVER_DEFAULTS,
   CLAUDE_PTY_LIFECYCLE_DEFAULTS,
-  CLOUDFLARE_TUNNEL_DEFAULTS,
-  DEFAULT_OPENROUTER_SDK_MODEL,
   PACKAGE_UPDATE_SETTINGS_DEFAULTS,
   PLUGIN_SETTINGS_DEFAULTS,
   PUSH_DEFAULTS,
-  TELEMETRY_DEFAULTS,
   TYPOGRAPHY_DEFAULTS,
   UPLOAD_DEFAULTS,
 } from "../shared/types"
@@ -126,23 +123,10 @@ export function mergeAppSettingsPatch(
           ...patch.providerDefaults?.codex?.modelOptions,
         },
       },
-      openrouter: {
-        ...snapshot.providerDefaults.openrouter,
-        ...patch.providerDefaults?.openrouter,
-        modelOptions: {},
-      },
-    },
-    cloudflareTunnel: {
-      ...snapshot.cloudflareTunnel,
-      ...patch.cloudflareTunnel,
     },
     push: {
       ...snapshot.push,
       ...patch.push,
-    },
-    telemetry: {
-      ...snapshot.telemetry,
-      ...patch.telemetry,
     },
     auth: {
       ...snapshot.auth,
@@ -188,7 +172,6 @@ export function mergeAppSettingsPatch(
 
 export function buildInitialAppSettingsSnapshot(): AppSettingsSnapshot {
   return {
-    analyticsEnabled: true,
     browserSettingsMigrated: false,
     theme: "system",
     typography: TYPOGRAPHY_DEFAULTS,
@@ -223,17 +206,10 @@ export function buildInitialAppSettingsSnapshot(): AppSettingsSnapshot {
         },
         planMode: false,
       },
-      openrouter: {
-        model: DEFAULT_OPENROUTER_SDK_MODEL,
-        modelOptions: {},
-        planMode: false,
-      },
     },
     warning: null,
     filePathDisplay: "~/.kanna/data/settings.json",
-    cloudflareTunnel: CLOUDFLARE_TUNNEL_DEFAULTS,
     push: PUSH_DEFAULTS,
-    telemetry: TELEMETRY_DEFAULTS,
     auth: AUTH_DEFAULTS,
     claudeAuth: CLAUDE_AUTH_DEFAULTS,
     uploads: UPLOAD_DEFAULTS,
@@ -351,14 +327,7 @@ export function buildFallbackLlmProvider() {
       model,
       baseUrl,
     }: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">): Promise<LlmProviderSnapshot> => {
-      let resolvedBaseUrl: string
-      if (provider === "openrouter") {
-        resolvedBaseUrl = "https://openrouter.ai/api/v1"
-      } else if (provider === "custom") {
-        resolvedBaseUrl = baseUrl
-      } else {
-        resolvedBaseUrl = "https://api.openai.com/v1"
-      }
+      const resolvedBaseUrl = provider === "custom" ? baseUrl : "https://api.openai.com/v1"
       return {
         provider,
         apiKey,
@@ -384,9 +353,9 @@ export function buildFallbackLlmProvider() {
 
 
 type AppSettingsManagerSubset = Pick<AppSettingsManager,
-  "getSnapshot" | "write"
+  "getSnapshot"
 > & Partial<Pick<AppSettingsManager,
-  "setCloudflareTunnel" | "setClaudeAuth" | "writePatch" | "onChange" |
+  "setClaudeAuth" | "writePatch" | "onChange" |
   "createSubagent" | "updateSubagent" | "deleteSubagent"
 >>
 
@@ -399,26 +368,10 @@ export function buildResolvedAppSettings(
     getSnapshot: (): AppSettingsSnapshot =>
       appSettings?.getSnapshot() ?? fallbackSnapshot,
 
-    write: async (value: { analyticsEnabled: boolean }): Promise<AppSettingsSnapshot> => {
-      if (appSettings) return await appSettings.write(value)
-      fallbackSnapshot = { ...fallbackSnapshot, analyticsEnabled: value.analyticsEnabled }
-      return fallbackSnapshot
-    },
 
     writePatch: async (patch: AppSettingsPatch): Promise<AppSettingsSnapshot> => {
       if (appSettings?.writePatch) return await appSettings.writePatch(patch)
-      if (appSettings && patch.analyticsEnabled !== undefined && Object.keys(patch).length === 1) {
-        return await appSettings.write({ analyticsEnabled: patch.analyticsEnabled })
-      }
       fallbackSnapshot = mergeAppSettingsPatch(appSettings?.getSnapshot() ?? fallbackSnapshot, patch)
-      return fallbackSnapshot
-    },
-
-    setCloudflareTunnel: async (
-      patch: Partial<AppSettingsSnapshot["cloudflareTunnel"]>,
-    ): Promise<AppSettingsSnapshot> => {
-      if (appSettings?.setCloudflareTunnel) return await appSettings.setCloudflareTunnel(patch)
-      fallbackSnapshot = mergeAppSettingsPatch(appSettings?.getSnapshot() ?? fallbackSnapshot, { cloudflareTunnel: patch })
       return fallbackSnapshot
     },
 

@@ -56,7 +56,6 @@ interface OAuthPoolReleaseable {
 
 
 export interface RunClaudeSessionDeps {
-  openrouterFirstEntryTimeoutMs: number
   claudeSessions: Map<string, ClaudeSessionState>
   activeTurns: Map<string, ActiveTurn>
   pendingTools: PendingToolSlots
@@ -85,48 +84,6 @@ export async function runClaudeSession(
   deps: RunClaudeSessionDeps,
   session: ClaudeSessionState,
 ): Promise<void> {
-  const isOpenRouterSession = session.openrouterModel !== null
-  let turnAssistantText: string[] = []
-  let firstEntrySeen = false
-  let firstEntryWatchdog: ReturnType<typeof setTimeout> | null = null
-  const clearFirstEntryWatchdog = () => {
-    if (firstEntryWatchdog !== null) {
-      clearTimeout(firstEntryWatchdog)
-      firstEntryWatchdog = null
-    }
-  }
-  if (isOpenRouterSession) {
-    firstEntryWatchdog = setTimeout(() => {
-      if (firstEntrySeen) return
-      if (deps.claudeSessions.get(session.chatId) !== session) return
-      firstEntrySeen = true
-      const message = `OpenRouter produced no response within ${deps.openrouterFirstEntryTimeoutMs}ms — the selected model may be invalid or the upstream stalled.`
-      log.warn("[kanna/agent] openrouter stream produced no entry within watchdog window — failing turn", {
-        chatId: session.chatId,
-        sessionId: session.id,
-        model: session.openrouterModel,
-        timeoutMs: deps.openrouterFirstEntryTimeoutMs,
-      })
-      void (async () => {
-        await deps.store.appendMessage(
-          session.chatId,
-          timestamped({
-            kind: "result",
-            subtype: "error",
-            isError: true,
-            durationMs: deps.openrouterFirstEntryTimeoutMs,
-            result: message,
-          }),
-        )
-        await deps.store.recordTurnFailed(session.chatId, message)
-        const active = deps.activeTurns.get(session.chatId)
-        if (active) deps.activeTurns.delete(session.chatId)
-        deps.emitStateChange(session.chatId)
-        void session.session.interrupt().catch(() => {})
-        session.session.close()
-      })()
-    }, deps.openrouterFirstEntryTimeoutMs)
-  }
   try {
     let simulateLimit = deps.throwOnClaudeSessionStart
     loop: for await (const event of session.session.stream) {

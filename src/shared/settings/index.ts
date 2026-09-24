@@ -6,22 +6,9 @@ export {
   normalizeAuthSettings,
 } from "./auth"
 
-export type {
-  CloudflareTunnelMode,
-  CloudflareTunnelRecord,
-  CloudflareTunnelSettings,
-  CloudflareTunnelState,
-} from "./cloudflare-tunnel"
-export {
-  CLOUDFLARE_TUNNEL_DEFAULTS,
-  normalizeCloudflareTunnelSettings,
-} from "./cloudflare-tunnel"
-
 export type { PushSettings } from "./push"
 export { PUSH_DEFAULTS, normalizePushSettings } from "./push"
 
-export type { TelemetrySettings } from "./telemetry"
-export { TELEMETRY_DEFAULTS, normalizeTelemetrySettings } from "./telemetry"
 
 export type { TypographySettings } from "./typography"
 export { TYPOGRAPHY_DEFAULTS, normalizeTypographySettings } from "./typography"

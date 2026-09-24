@@ -1,0 +1,6 @@
+{"v":1,"kind":"port_proxy_started","proxyId":"5ec9d28b-f357-4258-b63c-4adb6d9b6a15","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","port":5174,"url":"http://127.0.0.1:3210/port-proxy/5174","timestamp":1000}
+{"v":1,"kind":"port_proxy_stopped","proxyId":"5ec9d28b-f357-4258-b63c-4adb6d9b6a15","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","reason":"user","timestamp":1000}
+{"v":1,"kind":"port_proxy_started","proxyId":"97b102aa-6100-48bf-ae93-21dc5ba95325","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","port":5175,"url":"http://127.0.0.1:3210/port-proxy/5175","timestamp":1000}
+{"v":1,"kind":"port_proxy_stopped","proxyId":"97b102aa-6100-48bf-ae93-21dc5ba95325","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","reason":"session_closed","timestamp":1000}
+{"v":1,"kind":"port_proxy_started","proxyId":"82f252dd-e3bf-4bad-aee2-615c4199ddf2","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","port":5176,"url":"http://127.0.0.1:3210/port-proxy/5176","timestamp":1000}
+{"v":1,"kind":"port_proxy_stopped","proxyId":"82f252dd-e3bf-4bad-aee2-615c4199ddf2","chatId":"bc4625d6-d95b-40ec-b87e-47881be2861a","reason":"server_shutdown","timestamp":1000}

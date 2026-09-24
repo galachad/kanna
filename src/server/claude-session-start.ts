@@ -39,7 +39,7 @@ import { parseConfiguredContextWindowFromModelId } from "./claude-usage-math"
 import { log } from "../shared/log"
 import type { ClaudeSessionHandle, HarnessToolRequest } from "./harness-types"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { ToolCallbackService } from "./tool-callback"
 import type { ChatPermissionPolicy } from "../shared/permission-policy"
 import type { ModelPrice } from "../shared/token-pricing"
@@ -153,10 +153,9 @@ export async function startClaudeSession(args: {
   forkSession: boolean
   oauthToken: string | null
   oauthBaseUrl?: string | null
-  openrouterApiKey?: string | null
   additionalDirectories?: string[]
   chatId?: string
-  tunnelGateway?: TunnelGateway | null
+  tunnelGateway?: PortProxyGateway | null
   onToolRequest: (request: HarnessToolRequest) => Promise<JsonValue>
   systemPromptAppend?: string
   systemPromptOverride?: string
@@ -224,7 +223,7 @@ export async function startClaudeSession(args: {
           localPath: args.localPath,
           chatId: args.chatId,
           sessionId: args.sessionToken ?? undefined,
-          tunnelGateway: args.tunnelGateway ?? null,
+          portProxyGateway: args.tunnelGateway ?? null,
           toolCallback: args.toolCallback,
           chatPolicy: args.chatPolicy,
           subagentOrchestrator: args.subagentOrchestrator,
@@ -255,7 +254,7 @@ export async function startClaudeSession(args: {
         _deps.buildClaudeEnv(
           process.env,
           args.oauthToken,
-          args.openrouterApiKey ? { apiKey: args.openrouterApiKey } : null,
+          null,
           args.oauthBaseUrl,
         ),
         args.additionalDirectories,

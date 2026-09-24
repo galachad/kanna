@@ -17,8 +17,6 @@ import type {
 } from "../shared/types"
 import type { ClientCommand } from "../shared/protocol"
 import { EventStore } from "./event-store"
-import type { AnalyticsReporter } from "./analytics"
-import { NoopAnalyticsReporter } from "./analytics"
 import { CodexAppServerManager } from "./codex-app-server"
 import { type GenerateChatTitleResult, generateTitleForChatDetailed } from "./generate-title"
 import type { ClaudeSessionHandle, HarnessTurn } from "./harness-types"
@@ -30,7 +28,7 @@ import { ClaudeLimitDetector, CodexLimitDetector, type LimitDetection, type Limi
 import { ClaudeAuthErrorDetector, type AuthErrorDetection } from "./auto-continue/auth-error-detector"
 import type { ScheduleManager } from "./auto-continue/schedule-manager"
 import type { LoopState } from "./auto-continue/read-model"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import { OAuthTokenPool } from "./oauth-pool/oauth-token-pool"
 import { SubagentOrchestrator, type BackgroundRunOutcome, type ProviderRunStart } from "./subagent-orchestrator"
 import {
@@ -205,8 +203,6 @@ const DEFAULT_CLAUDE_SESSION_MAX_RESIDENT = 4
 const DEFAULT_CLAUDE_SESSION_SWEEP_INTERVAL_MS = 60 * 1000
 const DEFAULT_PTY_BACKGROUND_TASK_MAX_MS = 30 * 60 * 1000
 const DEFAULT_BACKGROUND_TASK_MAX_WAKES = 3
-const DEFAULT_OPENROUTER_FIRST_ENTRY_TIMEOUT_MS = 2 * 60 * 1000
-
 function recordTurnSpend(active: ActiveTurn): void {
   const usage = active.usage
   if (!usage) return
@@ -223,7 +219,6 @@ function recordTurnSpend(active: ActiveTurn): void {
 export class AgentCoordinator {
   readonly store: EventStore
   private readonly onStateChange: (chatId?: string, options?: { immediate?: boolean }) => void
-  readonly analytics: AnalyticsReporter
   readonly codexManager: CodexAppServerManager
   readonly generateTitle: (messageContent: string, cwd: string) => Promise<GenerateChatTitleResult>
   readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs["startClaudeSession"]>
@@ -257,9 +252,8 @@ export class AgentCoordinator {
   }
   readonly throwOnClaudeSessionStart: boolean
   readonly autoResumeByChat = new Map<string, boolean>()
-  readonly openrouterFirstEntryTimeoutMs: number
   readonly tokenRotationDedupe = new Map<string, TokenRotationDedupeEntry>()
-  readonly tunnelGateway: TunnelGateway | null
+  readonly tunnelGateway: PortProxyGateway | null
   readonly oauthPool: OAuthTokenPool | null
   readonly toolCallback: ToolCallbackService | null
   readonly chatPolicy: ChatPermissionPolicy
@@ -274,7 +268,6 @@ export class AgentCoordinator {
   readonly localCatalog: import("./local-catalog").LocalCatalogService | null
   private readonly skillAccess: LocalSkillAccess
   readonly readLlmProvider: () => Promise<LlmProviderSnapshot>
-  readonly listOpenRouterModelsFn: (() => Promise<import("../shared/types").OpenRouterModel[]>) | null
   readonly persistOAuthStateFn: ((id: string, oauth: McpOAuthState) => void) | null
   readonly subagentPendingResolvers = new Map<
     string,
@@ -284,7 +277,6 @@ export class AgentCoordinator {
   constructor(args: AgentCoordinatorArgs) {
     this.store = args.store
     this.onStateChange = args.onStateChange
-    this.analytics = args.analytics ?? NoopAnalyticsReporter
     this.codexManager = args.codexManager ?? new CodexAppServerManager()
     this.generateTitle = args.generateTitle ?? generateTitleForChatDetailed
     this.startClaudeSessionFn = args.startClaudeSession ?? startClaudeSession
@@ -339,12 +331,9 @@ export class AgentCoordinator {
       p.finally(() => this.pendingCronOutcomes.delete(p))
     }
     this.getAutoResumePreference = args.getAutoResumePreference ?? (() => false)
-    this.openrouterFirstEntryTimeoutMs =
-      args.openrouterFirstEntryTimeoutMs ?? DEFAULT_OPENROUTER_FIRST_ENTRY_TIMEOUT_MS
     this.getSubagents = args.getSubagents ?? (() => [])
     this.getAppSettingsSnapshot = args.getAppSettingsSnapshot ?? (() => ({}))
     this.readLlmProvider = args.readLlmProvider ?? readLlmProviderSnapshot
-    this.listOpenRouterModelsFn = args.listOpenRouterModels ?? null
     this.persistOAuthStateFn = args.persistOAuthState ?? null
     this.subagentOrchestrator = new SubagentOrchestrator({
       store: this.store,
@@ -666,7 +655,6 @@ export class AgentCoordinator {
       claudeSessions: this.claudeSessions,
       autoResumeByChat: this.autoResumeByChat,
       store: this.store,
-      analytics: this.analytics,
       cancel: (chatId, options) => this.cancel(chatId, options),
       closeClaudeSession: (chatId, session, opts) => this.closeClaudeSession(chatId, session, opts),
       emitStateChange: (chatId) => this.emitStateChange(chatId),
@@ -687,7 +675,6 @@ export class AgentCoordinator {
       claudeSessions: this.claudeSessions,
       resolveBackgroundTaskMaxMs: () => this.resolveBackgroundTaskMaxMs(),
       autoResumeByChat: this.autoResumeByChat,
-      analytics: this.analytics,
       getAppSettingsSnapshot: () => this.getAppSettingsSnapshot(),
       stopLoop: (chatId, reason) => this.stopLoop(chatId, reason),
       emitStateChange: (chatId) => this.emitStateChange(chatId),
@@ -1013,7 +1000,6 @@ export class AgentCoordinator {
       readLlmProvider: () => this.readLlmProvider(),
       buildPoolUnavailableMessage: (reservedFor, scopeSuffix) =>
         this.buildPoolUnavailableMessage(reservedFor, scopeSuffix),
-      listOpenRouterModelsFn: this.listOpenRouterModelsFn,
       getSubagents: () => this.getSubagents(),
       getAppSettingsSnapshot: () => this.getAppSettingsSnapshot(),
       getEnabledCustomMcpServers: () => this.getEnabledCustomMcpServers(),
@@ -1064,7 +1050,6 @@ export class AgentCoordinator {
     if (typeof command.autoResumeOnRateLimit === "boolean") {
       this.autoResumeByChat.set(command.chatId, command.autoResumeOnRateLimit)
     }
-    this.analytics.track("message_sent")
     const queuedMessage = await this.enqueueMessage(command.chatId, command.content, command.attachments ?? [], {
       provider: command.provider,
       model: command.model,
@@ -1088,7 +1073,6 @@ export class AgentCoordinator {
 
   private runClaudeSessionDeps(): RunClaudeSessionDeps {
     return {
-      openrouterFirstEntryTimeoutMs: this.openrouterFirstEntryTimeoutMs,
       claudeSessions: this.claudeSessions,
       activeTurns: this.activeTurns,
       pendingTools: this.pendingTools,

@@ -40,7 +40,6 @@ export interface BuildSubagentProviderRunArgs {
     forkSession: boolean
     oauthToken: string | null
     oauthBaseUrl?: string | null
-    openrouterApiKey?: string | null
     additionalDirectories?: string[]
     chatId?: string
     onToolRequest: (request: HarnessToolRequest) => Promise<JsonValue>
@@ -63,7 +62,6 @@ export interface BuildSubagentProviderRunArgs {
   onToolRequest: (request: HarnessToolRequest) => Promise<JsonValue>
   authReady: (provider: AgentProvider) => Promise<boolean>
   pickOauthToken: () => { token: string; baseUrl?: string } | null
-  readOpenRouterKey?: () => Promise<string | null>
   projectId: string
   globalPromptAppend?: string
   stackProjects?: ResolvedStackBinding[]
@@ -90,11 +88,8 @@ export function buildSubagentProviderRun(args: BuildSubagentProviderRunArgs): Pr
     async start(onChunk, onEntry, opts) {
       const initialPrompt = composeInitialPrompt(args.subagent, args.primer, args.userInstruction)
       const keepAlive = Boolean(opts?.keepAlive) && args.subagent.provider === "claude"
-      if (args.subagent.provider === "claude" || args.subagent.provider === "openrouter") {
-        const openrouterApiKey = args.subagent.provider === "openrouter"
-          ? (await args.readOpenRouterKey?.() ?? null)
-          : null
-        return runClaudeSubagent({ args, initialPrompt, onChunk, onEntry, keepAlive, openrouterApiKey })
+      if (args.subagent.provider === "claude") {
+        return runClaudeSubagent({ args, initialPrompt, onChunk, onEntry, keepAlive })
       }
       return runCodexSubagent({ args, initialPrompt, onChunk, onEntry })
     },
@@ -134,10 +129,9 @@ async function runClaudeSubagent(opts: {
   onChunk: (chunk: string) => void
   onEntry: (entry: TranscriptEntry) => void
   keepAlive: boolean
-  openrouterApiKey: string | null
 }): Promise<{ text: string; usage?: ProviderUsage; live?: LiveTurnSource }> {
-  const { args, initialPrompt, onChunk, onEntry, keepAlive, openrouterApiKey } = opts
-  const oauth = openrouterApiKey ? null : args.pickOauthToken()
+  const { args, initialPrompt, onChunk, onEntry, keepAlive } = opts
+  const oauth = args.pickOauthToken()
   const session = await args.startClaudeSession({
     projectId: args.projectId,
     localPath: args.cwd,
@@ -149,7 +143,6 @@ async function runClaudeSubagent(opts: {
     forkSession: false,
     oauthToken: oauth?.token ?? null,
     oauthBaseUrl: oauth?.baseUrl ?? null,
-    openrouterApiKey,
     chatId: args.chatId,
     onToolRequest: args.onToolRequest,
     systemPromptOverride: composeSubagentSystemPrompt(args.subagent.systemPrompt, subagentPromptOptions(args)),

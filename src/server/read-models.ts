@@ -31,8 +31,8 @@ import type { CronJobSnapshot } from "../shared/cron/types"
 import type { WorkflowRegistry } from "./workflow-registry"
 
 const EMPTY_CRON_JOBS: readonly CronJobSnapshot[] = []
-import { deriveChatTunnels } from "./cloudflare-tunnel/read-model"
-import type { CloudflareTunnelEvent } from "./cloudflare-tunnel/events"
+import { deriveChatProxies } from "./port-proxy/read-model"
+import type { PortProxyEvent } from "./port-proxy/events"
 
 export const ACTIVE_SESSION_IDLE_GAP_MS = 30 * 60 * 1_000
 const SIDEBAR_RECENT_WINDOW_MS = 24 * 60 * 60 * 1_000
@@ -383,7 +383,7 @@ export function deriveChatSnapshot(
   drainingChatIds: Set<string>,
   chatId: string,
   getMessages: (chatId: string) => Pick<ChatSnapshot, "messages" | "history">,
-  getTunnelEvents: (chatId: string) => readonly CloudflareTunnelEvent[],
+  getPortProxyEvents: (chatId: string) => readonly PortProxyEvent[],
   waitStartedAtByChatId: Map<string, number> = new Map(),
   nowMs: number = Date.now(),
   claudeSessionStates: Map<string, ClaudeSessionLifecycleStatus> = new Map(),
@@ -420,7 +420,7 @@ export function deriveChatSnapshot(
   const transcript = getMessages(chat.id)
   const autoContinueEvents = state.autoContinueEventsByChatId.get(chat.id) ?? []
   const { schedules, liveScheduleId } = deriveChatSchedules(autoContinueEvents, chat.id)
-  const { tunnels, liveTunnelId } = deriveChatTunnels(getTunnelEvents(chat.id), chat.id)
+  const { proxies, liveProxyId } = deriveChatProxies(getPortProxyEvents(chat.id), chat.id)
 
   const resolvedBindings = chat.stackBindings && chat.stackBindings.length > 0
     ? resolveStackProjects(chat, (id) => {
@@ -471,8 +471,8 @@ export function deriveChatSnapshot(
     availableProviders: mergeCustomModels([...SERVER_PROVIDERS], customModels),
     schedules,
     liveScheduleId,
-    tunnels,
-    liveTunnelId,
+    proxies,
+    liveProxyId,
     subagentRuns,
     loopProgress,
     cronJobs,

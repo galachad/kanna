@@ -1,10 +1,10 @@
 import { PROTOCOL_VERSION } from "../shared/types"
 import { resolveSpawnPaths } from "./claude-session-config"
 import type { ChatRecord } from "./events"
-import type { UpdateInstallResult, UpdateSnapshot } from "../shared/types"
 import type { ClientCommand, ImportSessionsByIdsResult, ServerEnvelope } from "../shared/protocol"
 import type { ImportClaudeSessionsResult } from "./claude-session-importer.adapter"
 import type { DiscoveredProject } from "./discovery.adapter"
+import type { UpdateInstallResult, UpdateSnapshot } from "../shared/types"
 
 
 export interface ProjectStoreDep {
@@ -28,10 +28,6 @@ export interface ProjectDiffStoreDep {
   readPatch(args: { projectPath: string; path: string }): Promise<{ patch: string }>
 }
 
-export interface ProjectAnalyticsDep {
-  track(event: string): void
-}
-
 export interface ProjectTerminalsDep {
   closeByCwd(cwd: string): void
 }
@@ -40,7 +36,6 @@ export interface ProjectCommandDeps {
   store: ProjectStoreDep
   updateManager?: ProjectUpdateManagerDep | null
   diffStore: ProjectDiffStoreDep
-  analytics: ProjectAnalyticsDep
   refreshDiscovery: () => Promise<DiscoveredProject[]>
   ensureProjectDirectory: (path: string) => Promise<void>
   resolveLocalPath: (path: string) => string
@@ -62,7 +57,6 @@ export async function handleProjectCommand(
     store,
     updateManager,
     diffStore,
-    analytics,
     refreshDiscovery,
     ensureProjectDirectory,
     resolveLocalPath,
@@ -92,29 +86,25 @@ export async function handleProjectCommand(
         status: "error",
         updateAvailable: false,
         lastCheckedAt: Date.now(),
-        error: "Update manager unavailable.",
+        error: "Updates unavailable.",
         installAction: "restart",
         reloadRequestedAt: null,
       }
-      const snapshot = updateManager
-        ? await updateManager.checkForUpdates({ force: command.force })
-        : unavailableSnapshot
+      const snapshot = updateManager ? await updateManager.checkForUpdates({ force: command.force }) : unavailableSnapshot
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: snapshot })
       return true
     }
     case "update.install": {
-      if (!updateManager) {
-        throw new Error("Update manager unavailable.")
-      }
-      const result = await updateManager.installUpdate({ version: command.version })
+      const result: UpdateInstallResult = updateManager
+        ? await updateManager.installUpdate({ version: command.version })
+        : { ok: false, action: "restart", errorCode: "install_failed", userTitle: "Updates unavailable", userMessage: "Updates are unavailable." }
       send({ v: PROTOCOL_VERSION, type: "ack", id, result })
       return true
     }
     case "update.reload": {
-      if (!updateManager) {
-        throw new Error("Update manager unavailable.")
-      }
-      const result = await updateManager.forceReload()
+      const result: UpdateInstallResult = updateManager
+        ? await updateManager.forceReload()
+        : { ok: false, action: "reload", errorCode: "install_failed", userTitle: "Re-deploy unavailable", userMessage: "Re-deploy is unavailable." }
       send({ v: PROTOCOL_VERSION, type: "ack", id, result })
       return true
     }
@@ -127,7 +117,6 @@ export async function handleProjectCommand(
       await refreshDiscovery()
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: { projectId: project.id } })
       if (!existingProjectId) {
-        analytics.track("project_opened")
       }
       return true
     }
@@ -139,8 +128,6 @@ export async function handleProjectCommand(
       await refreshDiscovery()
       send({ v: PROTOCOL_VERSION, type: "ack", id, result: { projectId: project.id } })
       if (!existingProjectId) {
-        analytics.track("project_opened")
-        analytics.track("project_created")
       }
       return true
     }
@@ -151,7 +138,6 @@ export async function handleProjectCommand(
         terminals.closeByCwd(project.localPath)
       }
       send({ v: PROTOCOL_VERSION, type: "ack", id })
-      analytics.track("project_removed")
       return true
     }
     case "project.setStar": {
@@ -163,7 +149,6 @@ export async function handleProjectCommand(
     case "project.setInstructions": {
       await store.setProjectInstructions(command.projectId, command.instructions)
       send({ v: PROTOCOL_VERSION, type: "ack", id })
-      analytics.track("project_instructions_set")
       await broadcastSidebar()
       return true
     }

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import type { AgentCtrlCommandDeps, AgentCtrlAgentDep, TunnelGatewayDep } from "./ws-router-agent-ctrl"
+import type { AgentCtrlCommandDeps, AgentCtrlAgentDep, PortProxyGatewayDep } from "./ws-router-agent-ctrl"
 import { handleAgentCtrlCommand } from "./ws-router-agent-ctrl"
 import type { ClientCommand } from "../shared/protocol"
 
@@ -15,25 +15,23 @@ function makeAgent(overrides: Partial<AgentCtrlAgentDep> = {}): AgentCtrlAgentDe
   }
 }
 
-function makeTunnel(overrides: Partial<TunnelGatewayDep> = {}): TunnelGatewayDep {
+function makeProxyGateway(overrides: Partial<PortProxyGatewayDep> = {}): PortProxyGatewayDep {
   return {
-    accept: mock(async () => {}),
     stop: mock(async () => {}),
-    retry: mock(async () => {}),
     ...overrides,
   }
 }
 
 function makeDeps(
   agentOverrides?: Partial<AgentCtrlAgentDep>,
-  tunnel?: TunnelGatewayDep | undefined,
+  proxyGateway?: PortProxyGatewayDep | undefined,
   killPty?: AgentCtrlCommandDeps["killPtyInstance"],
 ): AgentCtrlCommandDeps & { sent: unknown[]; broadcasts: string[] } {
   const sent: unknown[] = []
   const broadcasts: string[] = []
   return {
     agent: makeAgent(agentOverrides),
-    tunnelGateway: tunnel,
+    portProxyGateway: proxyGateway,
     killPtyInstance: killPty,
     send: (envelope) => { sent.push(envelope) },
     broadcastChatAndSidebar: async (chatId) => { broadcasts.push(chatId) },
@@ -89,43 +87,22 @@ describe("handleAgentCtrlCommand", () => {
   })
 
 
-  test("tunnel.accept — calls tunnelGateway, acks, and broadcasts", async () => {
-    const tunnel = makeTunnel()
-    const deps = makeDeps(undefined, tunnel)
-    const cmd: ClientCommand = { type: "tunnel.accept", chatId: "c-4", tunnelId: "t-1" }
-    const handled = await handleAgentCtrlCommand(deps, cmd, "r4")
-    expect(handled).toBe(true)
-    expect((tunnel.accept as ReturnType<typeof mock>)).toHaveBeenCalledWith("c-4", "t-1")
-    expect(deps.sent).toHaveLength(1)
-    expect(deps.broadcasts).toEqual(["c-4"])
-  })
-
-  test("tunnel.accept — still acks and broadcasts when tunnelGateway is absent", async () => {
-    const deps = makeDeps(undefined, undefined)
-    const cmd: ClientCommand = { type: "tunnel.accept", chatId: "c-5", tunnelId: "t-2" }
-    const handled = await handleAgentCtrlCommand(deps, cmd, "r5")
-    expect(handled).toBe(true)
-    expect(deps.sent).toHaveLength(1)
-    expect(deps.broadcasts).toEqual(["c-5"])
-  })
-
-  test("tunnel.stop — calls tunnelGateway, acks, and broadcasts", async () => {
-    const tunnel = makeTunnel()
-    const deps = makeDeps(undefined, tunnel)
-    const cmd: ClientCommand = { type: "tunnel.stop", chatId: "c-6", tunnelId: "t-3" }
+  test("proxy.stop — calls portProxyGateway, acks, and broadcasts", async () => {
+    const proxyGateway = makeProxyGateway()
+    const deps = makeDeps(undefined, proxyGateway)
+    const cmd: ClientCommand = { type: "proxy.stop", chatId: "c-6", proxyId: "p-3" }
     const handled = await handleAgentCtrlCommand(deps, cmd, "r6")
     expect(handled).toBe(true)
-    expect((tunnel.stop as ReturnType<typeof mock>)).toHaveBeenCalledWith("c-6", "t-3")
+    expect((proxyGateway.stop as ReturnType<typeof mock>)).toHaveBeenCalledWith("c-6", "p-3")
     expect(deps.broadcasts).toEqual(["c-6"])
   })
 
-  test("tunnel.retry — calls tunnelGateway, acks, and broadcasts", async () => {
-    const tunnel = makeTunnel()
-    const deps = makeDeps(undefined, tunnel)
-    const cmd: ClientCommand = { type: "tunnel.retry", chatId: "c-7", tunnelId: "t-4" }
+  test("proxy.stop — still acks and broadcasts when portProxyGateway is absent", async () => {
+    const deps = makeDeps(undefined, undefined)
+    const cmd: ClientCommand = { type: "proxy.stop", chatId: "c-7", proxyId: "p-4" }
     const handled = await handleAgentCtrlCommand(deps, cmd, "r7")
     expect(handled).toBe(true)
-    expect((tunnel.retry as ReturnType<typeof mock>)).toHaveBeenCalledWith("c-7", "t-4")
+    expect(deps.sent).toHaveLength(1)
     expect(deps.broadcasts).toEqual(["c-7"])
   })
 

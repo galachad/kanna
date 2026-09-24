@@ -40,7 +40,7 @@ describe("PushNotificationsSection", () => {
     expect(html).toMatch(/not supported/i)
   })
 
-  test("renders the insecure-context message with --share hint", () => {
+  test("renders the insecure-context message with HTTPS guidance", () => {
     const html = renderToStaticMarkup(
       <PushNotificationsSection
         permissionState="insecure-context"
@@ -51,7 +51,7 @@ describe("PushNotificationsSection", () => {
       />
     )
     expect(html).toMatch(/HTTPS/i)
-    expect(html).toMatch(/--share/i)
+    expect(html).toMatch(/enable notifications/i)
   })
 
   test("renders 'Enable on this device' when permission default", () => {

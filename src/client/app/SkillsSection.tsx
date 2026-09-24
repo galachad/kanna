@@ -321,6 +321,7 @@ export function SkillsSection({
 
       <section className="flex flex-col gap-3">
         <div className="text-sm font-medium text-foreground">Discover</div>
+        <div className="text-xs text-muted-foreground">Skills are third-party code. Review the source before installing.</div>
         <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card/30 px-3">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input

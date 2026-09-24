@@ -1,54 +1,54 @@
 import type { StorageBackend } from "./storage/backend"
-import type { CloudflareTunnelEvent } from "./cloudflare-tunnel/events"
+import type { PortProxyEvent } from "./port-proxy/events"
 import type { PushEvent } from "./push/events"
 import type { ShareEvent } from "./session-share/share-projection"
 import {
-  applyTunnelEventToMap,
+  applyPortProxyEventToMap,
   loadPushEventsFromLog,
   loadShareEventsFromLog,
-  loadTunnelEventsFromLog,
+  loadPortProxyEventsFromLog,
 } from "./event-store-snapshot"
 
 
 export interface PeripheralEventsDeps {
   readonly storage: StorageBackend
-  readonly tunnelLogPath: string
+  readonly portProxyLogPath: string
   readonly sharesLogPath: string
   readonly pushLogPath: string
-  readonly tunnelEventsByChatId: Map<string, CloudflareTunnelEvent[]>
+  readonly portProxyEventsByChatId: Map<string, PortProxyEvent[]>
   readonly shareEventsAll: ShareEvent[]
   getWriteChain: () => Promise<void>
   setWriteChain: (p: Promise<void>) => void
 }
 
 
-export async function appendTunnelEvent(
+export async function appendPortProxyEvent(
   deps: PeripheralEventsDeps,
-  event: CloudflareTunnelEvent,
+  event: PortProxyEvent,
 ): Promise<void> {
   const payload = `${JSON.stringify(event)}\n`
   const chain = deps.getWriteChain().then(async () => {
-    await deps.storage.appendText(deps.tunnelLogPath, payload)
-    applyTunnelEventToMap(deps.tunnelEventsByChatId, event)
+    await deps.storage.appendText(deps.portProxyLogPath, payload)
+    applyPortProxyEventToMap(deps.portProxyEventsByChatId, event)
   })
   deps.setWriteChain(chain)
   await chain
 }
 
-export function getTunnelEvents(
+export function getPortProxyEvents(
   deps: PeripheralEventsDeps,
   chatId: string,
-): CloudflareTunnelEvent[] {
-  const list = deps.tunnelEventsByChatId.get(chatId)
+): PortProxyEvent[] {
+  const list = deps.portProxyEventsByChatId.get(chatId)
   return list ? [...list] : []
 }
 
-export function listTunnelChats(deps: PeripheralEventsDeps): string[] {
-  return [...deps.tunnelEventsByChatId.keys()]
+export function listPortProxyChats(deps: PeripheralEventsDeps): string[] {
+  return [...deps.portProxyEventsByChatId.keys()]
 }
 
-export async function loadTunnelEvents(deps: PeripheralEventsDeps): Promise<void> {
-  await loadTunnelEventsFromLog(deps.storage, deps.tunnelLogPath, deps.tunnelEventsByChatId)
+export async function loadPortProxyEvents(deps: PeripheralEventsDeps): Promise<void> {
+  await loadPortProxyEventsFromLog(deps.storage, deps.portProxyLogPath, deps.portProxyEventsByChatId)
 }
 
 

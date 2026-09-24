@@ -34,7 +34,6 @@ function fakeState(overrides: Partial<KannaState> = {}): KannaState {
     openSidebar: () => undefined,
     handleOpenExternalPath: async () => undefined,
     handleWriteAppSettings: async () => undefined,
-    handleWriteCloudflareTunnel: async () => undefined,
     handleWriteClaudeAuth: async () => undefined,
     handleTestOAuthToken: async () => ({ ok: true, error: null }),
     handleReadLlmProvider: async () => undefined,

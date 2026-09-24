@@ -6,7 +6,6 @@ import type {
   ClaudeDriverPreference,
   LlmProviderSnapshot,
   McpServerConfig,
-  OpenRouterModel,
   ResolvedStackBinding,
   Subagent,
 } from "../shared/types"
@@ -27,7 +26,7 @@ import { toArmedLoopInfo } from "./claude-loop-commands"
 import type { ChatPermissionPolicy } from "../shared/permission-policy"
 import type { StartClaudeSessionPtyArgs } from "./claude-pty/driver"
 import type { SubagentOrchestrator } from "./subagent-orchestrator"
-import type { TunnelGateway } from "./cloudflare-tunnel/gateway"
+import type { PortProxyGateway } from "./port-proxy/gateway"
 import type { ToolCallbackService } from "./tool-callback"
 import type { ClaudePtyRegistry } from "./claude-pty/pid-registry.adapter"
 import type { PtyInstanceRegistry } from "./claude-pty/pty-instance-registry"
@@ -73,7 +72,7 @@ export interface SpawnClaudeTurnDeps {
 
   subagentOrchestrator: SubagentOrchestrator
   toolCallback: ToolCallbackService | null
-  tunnelGateway: TunnelGateway | null
+  tunnelGateway: PortProxyGateway | null
   claudePtyRegistry: ClaudePtyRegistry | null
   ptyInstanceRegistry: PtyInstanceRegistry | null
   workflowRegistry: WorkflowRegistry | null
@@ -88,7 +87,6 @@ export interface SpawnClaudeTurnDeps {
   enforceClaudeSessionBudget: (protectedChatId?: string) => void
   readLlmProvider: () => Promise<LlmProviderSnapshot>
   buildPoolUnavailableMessage: (reservedFor: string, scopeSuffix: string) => string
-  listOpenRouterModelsFn: (() => Promise<OpenRouterModel[]>) | null
   getSubagents: () => Subagent[]
   getAppSettingsSnapshot: () => { globalPromptAppend?: string }
   getEnabledCustomMcpServers: () => readonly McpServerConfig[]
@@ -112,8 +110,7 @@ export async function spawnClaudeTurn(
 ): Promise<HarnessTurn> {
   let session = deps.claudeSessions.get(args.chatId)
 
-  const driverIsPty = args.provider !== "openrouter"
-    && deps.resolveClaudeDriverPreference() === "pty"
+  const driverIsPty = deps.resolveClaudeDriverPreference() === "pty"
   const loopArmedNow = deps.isLoopArmed(args.chatId) !== null
 
   if (
@@ -130,28 +127,11 @@ export async function spawnClaudeTurn(
     }
 
     deps.enforceClaudeSessionBudget(args.chatId)
-    const isOpenRouter = args.provider === "openrouter"
-    const openrouterApiKey = isOpenRouter ? (await deps.readLlmProvider()).apiKey : null
-    const picked = isOpenRouter ? null : (deps.oauthPool?.pickActive(args.chatId) ?? null)
-    if (!isOpenRouter && deps.oauthPool && deps.oauthPool.hasAnyToken() && !picked) {
+    const picked = deps.oauthPool?.pickActive(args.chatId) ?? null
+    if (deps.oauthPool && deps.oauthPool.hasAnyToken() && !picked) {
       throw new OAuthPoolUnavailableError(deps.buildPoolUnavailableMessage(args.chatId, ""))
     }
     if (picked) deps.oauthPool!.markUsed(picked.id)
-
-    let openrouterTurnPrice: ModelPrice | null = null
-    let openrouterContextWindow: number | undefined
-    if (isOpenRouter && deps.listOpenRouterModelsFn) {
-      try {
-        const models = await deps.listOpenRouterModelsFn()
-        const baseModelId = stripModelVariantSuffix(args.model)
-        const m = models.find((x) => x.id === args.model)
-          ?? models.find((x) => x.id === baseModelId)
-        openrouterTurnPrice = resolveModelPrice(baseModelId, m?.pricing ?? null)
-        if (m && m.contextLength > 0) openrouterContextWindow = m.contextLength
-      } catch (err) {
-        log.warn("[kanna/agent] openrouter pricing lookup failed", String(err))
-      }
-    }
 
     const usePty = driverIsPty
     const systemPromptAppend = buildKannaSystemPromptAppend(deps.getSubagents(), {
@@ -233,7 +213,6 @@ export async function spawnClaudeTurn(
             forkSession: args.forkSession,
             oauthToken: picked?.token ?? null,
             oauthBaseUrl: picked?.baseUrl ?? null,
-            openrouterApiKey,
             additionalDirectories: args.additionalDirectories,
             chatId: args.chatId,
             tunnelGateway: deps.tunnelGateway,
@@ -267,9 +246,7 @@ export async function spawnClaudeTurn(
             chatPolicy: deps.resolveChatPolicy(args.chatId),
             customMcpServers: enabledMcpServers,
             oauthBearers,
-            turnPrice: openrouterTurnPrice,
             costBaselineUsd: args.sessionToken ? deps.getCostBaselineUsd(args.chatId) : undefined,
-            contextWindowOverride: openrouterContextWindow,
             onCompaction: delegationContext.depth === 0 ? deps.onCompaction : undefined,
           })
     } catch (err) {
@@ -293,8 +270,6 @@ export async function spawnClaudeTurn(
       activeTokenId: picked?.id ?? null,
       oauthKeyMasked: picked ? maskOauthKey(picked.token) : null,
       oauthLabel: picked?.label ?? null,
-      openrouterKeyMasked: openrouterApiKey ? maskOauthKey(openrouterApiKey) : null,
-      openrouterModel: isOpenRouter ? args.model : null,
       lastUsedAt: Date.now(),
       backgroundTasks: new Map<string, SessionBackgroundTask>(),
       backgroundTaskDeadlineAt: 0,

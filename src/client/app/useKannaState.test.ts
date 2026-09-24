@@ -332,8 +332,8 @@ describe("getActiveChatSnapshot", () => {
       availableProviders: [],
       schedules: {},
       liveScheduleId: null,
-      tunnels: {},
-      liveTunnelId: null,
+      proxies: {},
+      liveProxyId: null,
       subagentRuns: {},
       loopProgress: { chatId: "c", armed: false, rows: [], rateLimit: null, completed: 0, total: 0 },
     cronJobs: [],
@@ -369,8 +369,8 @@ describe("getActiveChatSnapshot", () => {
       availableProviders: [],
       schedules: {},
       liveScheduleId: null,
-      tunnels: {},
-      liveTunnelId: null,
+      proxies: {},
+      liveProxyId: null,
       subagentRuns: {},
       loopProgress: { chatId: "c", armed: false, rows: [], rateLimit: null, completed: 0, total: 0 },
     cronJobs: [],
@@ -539,8 +539,8 @@ function createMinimalChatSnapshot(overrides: Partial<ChatSnapshot> = {}): ChatS
     availableProviders: [],
     schedules: {},
     liveScheduleId: null,
-    tunnels: {},
-    liveTunnelId: null,
+    proxies: {},
+    liveProxyId: null,
     subagentRuns: {},
     loopProgress: { chatId: "c", armed: false, rows: [], rateLimit: null, completed: 0, total: 0 },
     cronJobs: [],
@@ -548,86 +548,78 @@ function createMinimalChatSnapshot(overrides: Partial<ChatSnapshot> = {}): ChatS
   }
 }
 
-describe("sameChatSnapshotCore tunnel fields", () => {
-  test("returns true when both snapshots have no tunnels", () => {
+describe("sameChatSnapshotCore proxy fields", () => {
+  test("returns true when both snapshots have no proxies", () => {
     const a = createMinimalChatSnapshot()
     const b = createMinimalChatSnapshot()
     expect(sameChatSnapshotCore(a, b)).toBe(true)
   })
 
-  test("returns false when tunnel state differs", () => {
+  test("returns false when proxy state differs", () => {
     const a = createMinimalChatSnapshot({
-      tunnels: {
+      proxies: {
         t1: {
-          tunnelId: "t1",
+          proxyId: "t1",
           chatId: "chat-1",
           port: 3000,
-          state: "proposed",
-          url: null,
-          error: null,
-          proposedAt: 1000,
-          activatedAt: null,
-          stoppedAt: null,
+          state: "stopped",
+          url: "https://kanna.example/port-proxy/3000",
+          createdAt: 1000,
+          stoppedAt: 3000,
         },
       },
-      liveTunnelId: "t1",
+      liveProxyId: "t1",
     })
     const b = createMinimalChatSnapshot({
-      tunnels: {
+      proxies: {
         t1: {
-          tunnelId: "t1",
+          proxyId: "t1",
           chatId: "chat-1",
           port: 3000,
           state: "active",
-          url: "https://example.trycloudflare.com",
-          error: null,
-          proposedAt: 1000,
-          activatedAt: 2000,
+          url: "https://kanna.example/port-proxy/3000",
+          createdAt: 2000,
           stoppedAt: null,
         },
       },
-      liveTunnelId: "t1",
+      liveProxyId: "t1",
     })
     expect(sameChatSnapshotCore(a, b)).toBe(false)
   })
 
-  test("returns true when tunnel state and all fields match", () => {
-    const tunnel = {
-      tunnelId: "t1",
+  test("returns true when proxy state and all fields match", () => {
+    const proxy = {
+      proxyId: "t1",
       chatId: "chat-1",
       port: 3000,
       state: "active" as const,
-      url: "https://example.trycloudflare.com",
-      error: null,
-      proposedAt: 1000,
-      activatedAt: 2000,
+      url: "https://kanna.example/port-proxy/3000",
+      createdAt: 2000,
       stoppedAt: null,
     }
-    const a = createMinimalChatSnapshot({ tunnels: { t1: tunnel }, liveTunnelId: "t1" })
-    const b = createMinimalChatSnapshot({ tunnels: { t1: { ...tunnel } }, liveTunnelId: "t1" })
+    const a = createMinimalChatSnapshot({ proxies: { t1: proxy }, liveProxyId: "t1" })
+    const b = createMinimalChatSnapshot({ proxies: { t1: { ...proxy } }, liveProxyId: "t1" })
     expect(sameChatSnapshotCore(a, b)).toBe(true)
   })
 
-  test("returns false when liveTunnelId differs", () => {
-    const a = createMinimalChatSnapshot({ tunnels: {}, liveTunnelId: "t1" })
-    const b = createMinimalChatSnapshot({ tunnels: {}, liveTunnelId: null })
+  test("returns false when liveProxyId differs", () => {
+    const a = createMinimalChatSnapshot({ proxies: {}, liveProxyId: "t1" })
+    const b = createMinimalChatSnapshot({ proxies: {}, liveProxyId: null })
     expect(sameChatSnapshotCore(a, b)).toBe(false)
   })
 
-  test("returns false when tunnel count differs", () => {
-    const tunnel = {
-      tunnelId: "t1",
+  test("returns false when proxy count differs", () => {
+    const proxy = {
+      proxyId: "t1",
       chatId: "chat-1",
       port: 3000,
       state: "stopped" as const,
-      url: null,
-      error: null,
-      proposedAt: 1000,
-      activatedAt: null,
+      url: "https://kanna.example/port-proxy/3000",
+      createdAt: 1000,
       stoppedAt: 3000,
     }
-    const a = createMinimalChatSnapshot({ tunnels: { t1: tunnel } })
-    const b = createMinimalChatSnapshot({ tunnels: {} })
+    const a = createMinimalChatSnapshot({ proxies: { t1: proxy } })
+    const b = createMinimalChatSnapshot({ proxies: {} })
     expect(sameChatSnapshotCore(a, b)).toBe(false)
   })
 })
@@ -648,8 +640,8 @@ function createMinimalSubagentRun(overrides: Partial<import("../../shared/types"
     startedAt: 1000,
     finishedAt: null,
     finalText: null,
-    error: null,
     usage: null,
+    error: null,
     entries: [],
     pendingTool: null,
     ...overrides,
