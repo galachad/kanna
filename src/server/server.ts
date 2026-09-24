@@ -131,11 +131,6 @@ export interface StartKannaServerOptions {
   trustProxy?: boolean
   onMigrationProgress?: (message: string) => void
   discoverProjects?: () => DiscoveredProject[]
-  update?: {
-    version: string
-    fetchLatestVersion: (packageName: string) => Promise<string>
-    installVersion: (packageName: string, version: string) => UpdateInstallAttemptResult
-  }
   agentOverrides?: {
     claudeLimitDetector?: LimitDetector
     codexLimitDetector?: LimitDetector

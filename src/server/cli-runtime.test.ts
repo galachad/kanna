@@ -4,11 +4,7 @@ import { CLI_SUPPRESS_OPEN_ONCE_ENV_VAR } from "./restart"
 
 const originalRuntimeProfile = process.env.KANNA_RUNTIME_PROFILE
 const originalSuppressOpen = process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR]
-const originalDisableSelfUpdate = process.env.KANNA_DISABLE_SELF_UPDATE
-
-beforeEach(() => {
-  delete process.env.KANNA_DISABLE_SELF_UPDATE
-})
+const originalEnableSelfUpdate = process.env.KANNA_ENABLE_SELF_UPDATE
 
 afterEach(() => {
   if (originalRuntimeProfile === undefined) {
@@ -21,10 +17,10 @@ afterEach(() => {
   } else {
     process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR] = originalSuppressOpen
   }
-  if (originalDisableSelfUpdate === undefined) {
-    delete process.env.KANNA_DISABLE_SELF_UPDATE
+  if (originalEnableSelfUpdate === undefined) {
+    delete process.env.KANNA_ENABLE_SELF_UPDATE
   } else {
-    process.env.KANNA_DISABLE_SELF_UPDATE = originalDisableSelfUpdate
+    process.env.KANNA_ENABLE_SELF_UPDATE = originalEnableSelfUpdate
   }
 })
 
@@ -37,14 +33,7 @@ function createDeps(overrides: Partial<Parameters<typeof runCli>[1]> = {}) {
       password: string | null
       strictPort: boolean
       trustProxy?: boolean
-      update: {
-        version: string
-        argv: string[]
-        command: string
-      }
     }>,
-    fetchLatestVersion: [] as string[],
-    installVersion: [] as Array<{ packageName: string; version: string }>,
     openUrl: [] as string[],
     log: [] as string[],
     warn: [] as string[],
@@ -58,19 +47,6 @@ function createDeps(overrides: Partial<Parameters<typeof runCli>[1]> = {}) {
       return {
         port: options.port,
         stop: async () => {},
-      }
-    },
-    fetchLatestVersion: async (packageName) => {
-      calls.fetchLatestVersion.push(packageName)
-      return "0.3.0"
-    },
-    installVersion: (packageName, version) => {
-      calls.installVersion.push({ packageName, version })
-      return {
-        ok: true,
-        errorCode: null,
-        userTitle: null,
-        userMessage: null,
       }
     },
     openUrl: (url) => {
@@ -335,21 +311,17 @@ describe("runCli", () => {
     const result = await runCli(["--version"], deps)
 
     expect(result).toEqual({ kind: "exited", code: 0 })
-    expect(calls.fetchLatestVersion).toEqual([])
     expect(calls.startServer).toEqual([])
     expect(calls.log).toEqual(["0.3.0"])
   })
 
-  test("starts normally when no newer version exists", async () => {
+  test("starts normally", async () => {
     const { calls, deps } = createDeps()
     process.env.KANNA_RUNTIME_PROFILE = "prod"
-    delete process.env.KANNA_DISABLE_SELF_UPDATE
 
     const result = await runCli(["--port", "4000", "--no-open"], deps)
 
     expect(result.kind).toBe("started")
-    expect(calls.fetchLatestVersion).toEqual(["@cuongtran001/kanna"])
-    expect(calls.installVersion).toEqual([])
     expect(calls.startServer).toHaveLength(1)
     expect(calls.startServer[0]).toMatchObject({
       port: 4000,
@@ -357,11 +329,6 @@ describe("runCli", () => {
       openBrowser: false,
       password: null,
       strictPort: false,
-      update: {
-        version: "0.3.0",
-        argv: ["--port", "4000", "--no-open"],
-        command: "kanna",
-      },
     })
     expect(calls.openUrl).toEqual([])
     expect(calls.log).toContain("[kanna] data dir: ~/.kanna/data")
@@ -413,67 +380,5 @@ describe("runCli", () => {
     await runCli(["--port", "4000"], deps)
 
     expect(calls.openUrl).toEqual([])
-  })
-
-  
-  
-  
-  
-
-  test("returns restarting when a newer version is available", async () => {
-    delete process.env.KANNA_DISABLE_SELF_UPDATE
-    const { calls, deps } = createDeps({
-      fetchLatestVersion: async (packageName) => {
-        calls.fetchLatestVersion.push(packageName)
-        return "0.4.0"
-      },
-    })
-
-    const result = await runCli(["--port", "4000", "--no-open"], deps)
-
-    expect(result).toEqual({ kind: "restarting", reason: "startup_update" })
-    expect(calls.installVersion).toEqual([{ packageName: "@cuongtran001/kanna", version: "0.4.0" }])
-    expect(calls.startServer).toEqual([])
-  })
-
-  test("falls back to current version when install fails", async () => {
-    delete process.env.KANNA_DISABLE_SELF_UPDATE
-    const { calls, deps } = createDeps({
-      fetchLatestVersion: async (packageName) => {
-        calls.fetchLatestVersion.push(packageName)
-        return "0.4.0"
-      },
-      installVersion: (packageName, version) => {
-        calls.installVersion.push({ packageName, version })
-        return {
-          ok: false,
-          errorCode: "install_failed",
-          userTitle: "Update failed",
-          userMessage: "Kanna could not install the update. Try again later.",
-        }
-      },
-    })
-
-    const result = await runCli(["--no-open"], deps)
-
-    expect(result.kind).toBe("started")
-    expect(calls.installVersion).toEqual([{ packageName: "@cuongtran001/kanna", version: "0.4.0" }])
-    expect(calls.warn).toContain("[kanna] update failed, continuing current version")
-  })
-
-  test("falls back to current version when the registry check fails", async () => {
-    delete process.env.KANNA_DISABLE_SELF_UPDATE
-    const { calls, deps } = createDeps({
-      fetchLatestVersion: async (packageName) => {
-        calls.fetchLatestVersion.push(packageName)
-        throw new Error("network unavailable")
-      },
-    })
-
-    const result = await runCli(["--no-open"], deps)
-
-    expect(result.kind).toBe("started")
-    expect(calls.installVersion).toEqual([])
-    expect(calls.warn).toContain("[kanna] update check failed, continuing current version")
   })
 })

@@ -811,7 +811,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
   const updateSnapshot = state.updateSnapshot
   const handleWriteAppSettings = state.handleWriteAppSettings
   const handleWriteClaudeAuth = state.handleWriteClaudeAuth
-  const handleTestOAuthToken = state.handleTestOAuthToken
   const handleReadLlmProvider = state.handleReadLlmProvider
   const handleWriteLlmProvider = state.handleWriteLlmProvider
   const handleValidateLlmProvider = state.handleValidateLlmProvider
@@ -1766,7 +1765,6 @@ export function SettingsPage({ ports }: { ports?: { dom?: DomPort } } = {}) {
                           tokens={appSettings?.claudeAuth.tokens ?? []}
                           concurrencyDefault={appSettings?.claudeAuth.concurrencyDefault ?? 1}
                           onWrite={handleWriteClaudeAuth}
-                          onTest={handleTestOAuthToken}
                         />
                       </div>
                     </SettingsRow>

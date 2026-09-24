@@ -150,7 +150,6 @@ export type ClientCommand =
   | { type: "settings.writeKeybindings"; bindings: KeybindingsSnapshot["bindings"] }
   | { type: "settings.readAppSettings" }
   | { type: "appSettings.setClaudeAuth"; patch: Partial<ClaudeAuthSettings> }
-  | { type: "appSettings.testOAuthToken"; token: string; baseUrl?: string }
   | { type: "settings.writeAppSettingsPatch"; patch: AppSettingsPatch }
   | { type: "subagent.create"; input: SubagentInput }
   | { type: "subagent.update"; id: string; patch: SubagentPatch }

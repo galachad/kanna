@@ -298,7 +298,6 @@ export interface AppGlobalState extends StackCommands {
   handleCompleteMcpOAuth: (id: string, callbackUrl: string) => Promise<{ ok: boolean; error?: string }>
   handleSetChatPolicyOverride: (chatId: string, policyOverride: ChatPermissionPolicyOverride | null) => Promise<void>
   handleWriteClaudeAuth: (patch: Partial<ClaudeAuthSettings>) => Promise<void>
-  handleTestOAuthToken: (token: string) => Promise<{ ok: boolean; error: string | null }>
   handleReadLlmProvider: () => Promise<void>
   handleWriteLlmProvider: (value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">) => Promise<void>
   handleValidateLlmProvider: (value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">) => Promise<LlmProviderValidationResult>
@@ -763,14 +762,6 @@ export function useAppGlobalState(
       throw error
     }
   }, [handleReadAppSettings, socket])
-
-  const handleTestOAuthToken = useCallback(async (token: string, baseUrl?: string) => {
-    return await socket.command<{ ok: boolean; error: string | null }>({
-      type: "appSettings.testOAuthToken",
-      token,
-      baseUrl,
-    })
-  }, [socket])
 
   const handleWriteLlmProvider = useCallback(async (
     value: Pick<LlmProviderSnapshot, "provider" | "apiKey" | "model" | "baseUrl">
@@ -1281,7 +1272,6 @@ export function useAppGlobalState(
     handleCompleteMcpOAuth,
     handleSetChatPolicyOverride,
     handleWriteClaudeAuth,
-    handleTestOAuthToken,
     handleReadLlmProvider,
     handleWriteLlmProvider,
     handleValidateLlmProvider,

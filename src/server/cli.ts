@@ -3,8 +3,6 @@ import { LOG_PREFIX } from "../shared/branding"
 import { log } from "../shared/log"
 import { getBunVersion, loadPackageVersion } from "./cli-bootstrap.adapter"
 import {
-  fetchLatestPackageVersion,
-  installPackageVersion,
   openUrl,
   runCli,
 } from "./cli-runtime"
@@ -22,8 +20,6 @@ const result = await runCli(argv, {
   startServer: async (options) => {
     return await startKannaServer(options)
   },
-  fetchLatestVersion: fetchLatestPackageVersion,
-  installVersion: installPackageVersion,
   openUrl,
   log: log.info,
   warn: log.warn,

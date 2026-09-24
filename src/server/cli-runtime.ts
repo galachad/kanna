@@ -1,7 +1,7 @@
 import process from "node:process"
 import { hasCommand, spawnDetached, spawnSyncCapture } from "./process-utils.adapter"
 import { log } from "../shared/log"
-import { APP_NAME, CLI_COMMAND, getDataDirDisplay, LOG_PREFIX, PACKAGE_NAME } from "../shared/branding"
+import { APP_NAME, CLI_COMMAND, getDataDirDisplay, LOG_PREFIX } from "../shared/branding"
 import type { UpdateInstallErrorCode } from "../shared/types"
 import { PROD_SERVER_PORT } from "../shared/ports"
 import { runPluginCli } from "./plugin-cli-dispatch"
@@ -16,14 +16,6 @@ export interface CliOptions {
   openBrowser: boolean
   password: string | null
   strictPort: boolean
-}
-
-export interface CliUpdateOptions {
-  version: string
-  fetchLatestVersion: (packageName: string) => Promise<string>
-  installVersion: (packageName: string, version: string) => UpdateInstallAttemptResult
-  argv: string[]
-  command: string
 }
 
 export interface StartedCli {
@@ -47,12 +39,9 @@ export interface CliRuntimeDeps {
   version: string
   bunVersion: string
   startServer: (options: CliOptions & {
-    update: CliUpdateOptions
     onMigrationProgress?: (message: string) => void
     trustProxy?: boolean
   }) => Promise<{ port: number; stop: () => Promise<void> }>
-  fetchLatestVersion: (packageName: string) => Promise<string>
-  installVersion: (packageName: string, version: string) => UpdateInstallAttemptResult
   openUrl: (url: string) => void
   log: (message: string) => void
   warn: (message: string) => void
@@ -192,41 +181,11 @@ function normalizeVersion(version: string) {
     .filter((part) => Number.isFinite(part))
 }
 
-async function maybeSelfUpdate(_argv: string[], deps: CliRuntimeDeps) {
-  if (process.env.KANNA_DISABLE_SELF_UPDATE === "1") {
+async function maybeSelfUpdate(_argv: string[], _deps: CliRuntimeDeps) {
+  if (process.env.KANNA_ENABLE_SELF_UPDATE !== "1") {
     return null
   }
-
-  deps.log(`${LOG_PREFIX} checking for updates`)
-
-  let latestVersion: string
-  try {
-    latestVersion = await deps.fetchLatestVersion(PACKAGE_NAME)
-  }
-  catch (error) {
-    deps.warn(`${LOG_PREFIX} update check failed, continuing current version`)
-    if (error instanceof Error && error.message) {
-      deps.warn(`${LOG_PREFIX} ${error.message}`)
-    }
-    return null
-  }
-
-  if (!latestVersion || compareVersions(deps.version, latestVersion) >= 0) {
-    return null
-  }
-
-  deps.log(`${LOG_PREFIX} installing ${PACKAGE_NAME}@${latestVersion}`)
-  const installResult = deps.installVersion(PACKAGE_NAME, latestVersion)
-  if (!installResult.ok) {
-    deps.warn(`${LOG_PREFIX} update failed, continuing current version`)
-    if (installResult.userMessage) {
-      deps.warn(`${LOG_PREFIX} ${installResult.userMessage}`)
-    }
-    return null
-  }
-
-  deps.log(`${LOG_PREFIX} restarting into updated version`)
-  return "startup_update"
+  return null
 }
 
 async function preparePluginServiceFromSettings(): Promise<void> {
@@ -263,13 +222,6 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
   const { port, stop } = await deps.startServer({
     ...parsedArgs.options,
     onMigrationProgress: deps.log,
-    update: {
-      version: deps.version,
-      fetchLatestVersion: deps.fetchLatestVersion,
-      installVersion: deps.installVersion,
-      argv,
-      command: CLI_COMMAND,
-    },
   })
   const bindHost = parsedArgs.options.host
   const displayHost = bindHost === "127.0.0.1" || bindHost === "0.0.0.0" ? "localhost" : bindHost
@@ -299,20 +251,6 @@ export function openUrl(url: string) {
     void spawnDetached("xdg-open", [url]).catch(() => {})
   }
   log.info(`${LOG_PREFIX} opened in default browser`)
-}
-
-export async function fetchLatestPackageVersion(packageName: string) {
-  const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`)
-  if (!response.ok) {
-    throw new Error(`registry returned ${response.status}`)
-  }
-
-  const payload: { version?: string } = await response.json()
-  if (typeof payload.version !== "string" || !payload.version.trim()) {
-    throw new Error("registry response did not include a version")
-  }
-
-  return payload.version
 }
 
 export function classifyInstallVersionFailure(output: string): UpdateInstallAttemptResult {
